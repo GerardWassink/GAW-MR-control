@@ -1,15 +1,16 @@
 /* ------------------------------------------------------------------------- *
  * Name   : GAW-MR-control
  * Author : Gerard Wassink
- * Date   : April 2025
+ * Date   : May 2025
  * Purpose: Control model railway through switch panel via a Loconet connection
  * Made use of: https://www.tindie.com/products/tanner87661/loconet-interface-breakout-board-with-grove-port/
  * Versions:
  *   0.1  : Initial code base
  *   0.2  : Added 20x4 LCD display
+ *   0.3  : Intermediate code cleanup
  *
  *---------------------------------------------                                                          ---------------------------- */
-#define progVersion "0.2"  // Program version definition
+#define progVersion "0.3"  // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
@@ -62,7 +63,6 @@
 #include <Wire.h>                           // I2C comms library
 #include <LiquidCrystal_I2C.h>              // LCD library
 
-
 /* ------------------------------------------------------------------------- *
  *                                                               Definitions
  * ------------------------------------------------------------------------- */
@@ -75,9 +75,12 @@
 #define STRAIGHT 0
 #define THROWN 1
 
-#define Nelements sizeof(element) / sizeof(MR_data)
+#define nElements sizeof(element) / sizeof(MR_data)
 
-#define memSize EEPROM.length()
+#define memSize EEPROM.length()             // Amount of EEPROM memory
+
+#define POWERLED 53                         // Panel Power indicator
+
 
 /* ====================== FOR TESTING LOCONET ===================*/
 #define BUTTON_PIN  4
@@ -86,15 +89,17 @@
 
 
 /* ------------------------------------------------------------------------- *
- *                                                                   Globals
+ *                                                          Global variables
  * ------------------------------------------------------------------------- */
 lnMsg *LnPacket;
 int turnoutDirection;
+
 bool buttonPressed = false;
 
+int activeLoc = 0;                          // (future use)
 
 /* ------------------------------------------------------------------------- *
- *                                                         Turnout structure
+ *                                                         Element structure
  * ------------------------------------------------------------------------- */
 struct MR_data{
   int type;
@@ -107,7 +112,7 @@ int entrySize = sizeof(MR_data);
 
 struct MR_data element[] = {
 
-// Types: 0 = turnout, 99 = power
+// Types: 0 = turnout, 1 = Locomotive, 99 = power
 
 //              Module 1
    0, 1, 101, STRAIGHT,
@@ -148,6 +153,14 @@ struct MR_data element[] = {
    0, 8, 804, STRAIGHT,
    0, 8, 805, STRAIGHT,
 
+//              Locomotives
+   1, 0, 344, 0,
+   1, 0, 386, 0,
+   1, 0, 611, 0,
+   1, 0, 612, 0,
+   1, 0, 611, 0,
+   1, 0,2412, 0,
+
 //              POWER
   99, 0,   0, POWEROFF
 
@@ -160,23 +173,21 @@ struct MR_data element[] = {
  *         The buttons are handled in a 6 x 6 grid
  * ------------------------------------------------------------------------- */
 char keys[ROWS][COLS] = {
-  { 0, 1, 2, 3, 4, 5},
-  { 6, 7, 8, 9,10,11},
-  {12,13,14,15,16,17},
-  {18,19,20,21,22,23},
-  {24,25,26,27,28,29},
-  {30,31,32,33,34,35},
+  { 1, 2, 3, 4, 5, 6},
+  { 7, 8, 9,10,11,12},
+  {13,14,15,16,17,18},
+  {19,20,21,22,23,24},
+  {25,26,27,28,29,30},
+  {31,32,33,34,35,36},
 };
 
 byte rowPins[ROWS] = {22,23,24,25,26,27}; // row pins of the controlPanel
 byte colPins[COLS] = {28,29,30,31,32,33}; // column pins of the controlPanel
 
-
 /* ------------------------------------------------------------------------- *
  *       Create objects for controlPanel
  * ------------------------------------------------------------------------- */
 Keypad controlPanel = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS);
-
 
 /* ------------------------------------------------------------------------- *
  *       Create objects with addres(ses) for the LCD screen
@@ -190,15 +201,14 @@ LiquidCrystal_I2C display(0x26,20,4);          // Initialize display
  * ------------------------------------------------------------------------- */
 void setup() {
 
-  delay(1000);                              // Skip execution before real start
+  delay(1000);                              // Delay execution before start
 
   pinMode(4, INPUT_PULLUP);                 // Loconet TEST-SWITCH
-  pinMode(53, OUTPUT);                      // Power indicator LED
+  pinMode(POWERLED, OUTPUT);                // Power indicator LED
 
   display.init();                           // Initialize display
   display.backlight();                      // Backlights on by default
-
-  doInitialScreen(3);
+  doInitialScreen(3);                       // Show when no debugging
 
   debugstart(115200);                       // Start serial
 
@@ -211,7 +221,7 @@ void setup() {
   debug("MemSize   = "); debugln(memSize);
   debug("entrySize = "); debugln(entrySize);
   debug("tableSize = "); debugln(sizeof(element));
-  debug("Nelements = "); debugln(Nelements);
+  debug("nElements = "); debugln(nElements);
 
 #if DEBUG_LVL > 1
   debugln(F("Show elements:"));
@@ -228,14 +238,14 @@ void setup() {
   }
 #endif
 
-  debugln(F("Initializing LocoNet"));
+  debugln(F("Initialize LocoNet"));
   LocoNet.init();                           // Initialize Loconet
-
-  debugln(F("Setup done, ready for operations"));
-  debugln(F("==============================="));
 
   LCD_display(display, 1, 0, F("                    "));
   LCD_display(display, 2, 0, F("                    "));
+
+  debugln(F("Setup done, ready for operations"));
+  debugln(F("==============================="));
 
 }
 
@@ -292,8 +302,6 @@ void loop() {
  * ------------------------------------------------------------------------- */
 void doInitialScreen(int s) {
   
-  debugln("Entering doInitialScreen");
-
   LCD_display(display, 0, 0, F("GAW_Turnouts v      "));
   LCD_display(display, 0, 14, progVersion);
   LCD_display(display, 1, 0, F("(c) Gerard Wassink  "));
@@ -310,25 +318,32 @@ void doInitialScreen(int s) {
  * ------------------------------------------------------------------------- */
 void handleButtons(char key) {
 
-  int button = key;                         // Keycode to table index
+  int index = key - 1;                       // Keycode to table index
 
-  element[button].state = !element[button].state;    // Flip state
+  switch(element[index].type) {
 
-  switch(element[button].type) {
-
-    case 0:                                 // Element is Turnout
+    case 0:                                           // TURNOUT
+      element[index].state = !element[index].state;   // Flip state
       debug("Turnout # "); 
-      debug(element[button].address); debug(" - ");
-      debugln(element[button].state ? "straight" : "thrown"); 
-      displayTurnoutState(button);
+      debug(element[index].address); debug(" - ");
+      debugln(element[index].state ? "straight" : "thrown"); 
+      displayTurnoutState(index);
       break;
 
-    case 99:                                // Element is POWER 
+    case 1:                                           // LOCOMOTIVE
+      debug("Loc # ");                                // Just display
+      debugln(element[index].address);                //   future use
+      activeLoc = element[index].address;
+      LCD_display(display, 2, 0, "Loc "+String(activeLoc)+"   ");
+      break;
+
+    case 99:                                          // POWER 
+      element[index].state = !element[index].state;   // Flip state
       debug("POWER # "); 
-      debug(element[button].address); debug(" - ");
-      debugln(element[button].state ? "ON" : "OFF");
-      element[button].state ? digitalWrite(53, HIGH) : digitalWrite(53, LOW);
-      LCD_display(display, 3,17, element[button].state ? "ON " : "OFF");
+      debug(element[index].address); debug(" - ");
+      debugln(element[index].state ? "ON" : "OFF");
+      element[index].state ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
+      LCD_display(display, 3,17, element[index].state ? "ON " : "OFF");
       break;
 
     default: 
@@ -341,12 +356,12 @@ void handleButtons(char key) {
   
 
 /* ------------------------------------------------------------------------- *
- *       Routine to display stuff on the display of choice     LCD_display()
+ *                                                     displayTurnoutState()
  * ------------------------------------------------------------------------- */
-void displayTurnoutState(int button) {
-    LCD_display(display, 1, 0, F("Turnout aaa straight"));
-    LCD_display(display, 1, 8, String(element[button].address));
-    LCD_display(display, 1,12, element[button].state ? "straight" : "thrown  ");
+void displayTurnoutState(int index) {
+    LCD_display(display, 1, 0, F("Turnout             "));
+    LCD_display(display, 1, 8, String(element[index].address));
+    LCD_display(display, 1,12, element[index].state ? "straight" : "thrown  ");
 }
 
   
