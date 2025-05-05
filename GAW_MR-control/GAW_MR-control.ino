@@ -302,8 +302,8 @@ void loop() {
  * ------------------------------------------------------------------------- */
 void doInitialScreen(int s) {
   
-  LCD_display(display, 0, 0, F("GAW_Turnouts v      "));
-  LCD_display(display, 0, 14, progVersion);
+  LCD_display(display, 0, 0, F("GAW-MR-control v    "));
+  LCD_display(display, 0, 16, progVersion);
   LCD_display(display, 1, 0, F("(c) Gerard Wassink  "));
   LCD_display(display, 2, 0, F("GNU public license  "));
 
