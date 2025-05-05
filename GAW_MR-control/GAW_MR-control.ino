@@ -331,7 +331,7 @@ void handleButtons(char key) {
       break;
 
     case 1:                                           // LOCOMOTIVE
-      debug("Loc # ");                                // Just display
+      debug("Loc # ");                                // Just display address
       debugln(element[index].address);                //   future use
       activeLoc = element[index].address;
       LCD_display(display, 2, 0, "Loc "+String(activeLoc)+"   ");
