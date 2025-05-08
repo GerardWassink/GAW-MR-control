@@ -9,6 +9,8 @@
  *   0.2  : Added 20x4 LCD display
  *   0.3  : Intermediate code cleanup
  *   0.4  : Built in save and recall for status table
+ *          Added text to the README
+ *   0.5  : Code cleanup & little corrections
  *
  *---------------------------------------------                                                          ---------------------------- */
 #define progVersion "0.4"  // Program version definition
@@ -83,13 +85,6 @@
 
 #define POWERLED 53                         // Panel Power indicator
 
-
-/* ====================== FOR TESTING LOCONET ===================*/
-#define BUTTON_PIN  4
-#define TURNOUT_ADDRESS 501
-/* ====================== FOR TESTING LOCONET ===================*/
-
-
 /* ------------------------------------------------------------------------- *
  *                                                          Global variables
  * ------------------------------------------------------------------------- */
@@ -98,7 +93,7 @@ int turnoutDirection;
 
 bool buttonPressed = false;
 
-int activeLoc = 0;                          // (future use)
+int activeLoc = 0;
 
 /* ------------------------------------------------------------------------- *
  *                                                         Element structure
@@ -163,10 +158,11 @@ struct MR_data element[] = {
 //              Functions
   90, 0,9001, 0,                            // Store state
   90, 0,9002, 0,                            // Recall state
+  90, 0,9003, 0,                            // Test display states
+
 
 //              POWER
-  99, 0,9999, POWEROFF,                      // Roco Z21
-
+  99, 0,9999, POWEROFF,                     // Roco Z21
 };
 
 
@@ -174,23 +170,25 @@ struct MR_data element[] = {
  *       Define controlPanel variables
  *         this is the control panel for the model railroad layout
  *         The buttons are handled in a 6 x 6 grid
- * ------------------------------------------------------------------------- */
+ * ------------------------------------------------------------------------ */
 char keys[ROWS][COLS] = {
-  { 1, 2, 3, 4, 5, 6},
-  { 7, 8, 9,10,11,12},
-  {13,14,15,16,17,18},
-  {19,20,21,22,23,24},
-  {25,26,27,28,29,30},
-  {31,32,33,34,35,36},
+  { 1,  2,  3,  4,  5,  6},                 // Pointers into the element 
+  { 7,  8,  9, 10, 11, 12},                 //   array for each button
+  {13, 14, 15, 16, 17, 18},
+  {19, 20, 21, 22, 23, 24},
+  {25, 26, 27, 28, 29, 30},
+  {31, 32, 33, 34, 35, 36},
 };
 
-byte rowPins[ROWS] = {22,23,24,25,26,27}; // row pins of the controlPanel
-byte colPins[COLS] = {28,29,30,31,32,33}; // column pins of the controlPanel
+byte rowPins[ROWS] = {22, 23, 24, 25, 26, 27}; // row pins of the controlPanel
+byte colPins[COLS] = {28, 29, 30, 31, 32, 33}; // column pins of the controlPanel
+
 
 /* ------------------------------------------------------------------------- *
  *       Create objects for controlPanel
  * ------------------------------------------------------------------------- */
 Keypad controlPanel = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
 
 /* ------------------------------------------------------------------------- *
  *       Create objects with addres(ses) for the LCD screen
@@ -206,7 +204,6 @@ void setup() {
 
   delay(1000);                              // Delay execution before start
 
-  pinMode(4, INPUT_PULLUP);                 // Loconet TEST-SWITCH
   pinMode(POWERLED, OUTPUT);                // Power indicator LED
 
   display.init();                           // Initialize display
@@ -233,7 +230,7 @@ void setup() {
   debugln(F("Restore state from memory"));
   recallState();                            // Recall state from EEPROM
 
-  resetState();                             // Make state as it was!
+  restoreState();                             // Make state as it was!
 
 #if DEBUG_LVL > 1
   showElements();
@@ -242,112 +239,6 @@ void setup() {
   debugln(F("Setup done, ready for operations"));
   debugln(F("==============================="));
 
-}
-
-
-/* ------------------------------------------------------------------------- *
- *                                                              resetState()
- * ------------------------------------------------------------------------- */
-void resetState() {
-  int pwr = 0;
-  for (int i=0; i<nElements; i++) {         // FIRST: restore power state
-    if (element[i].type == 99) {
-        pwr = element[i].state;
-        setPower(element[i].state);
-    }
-  }
-
-  if (pwr) {                                // Power on? then turnouts
-    for (int i=0; i<nElements; i++) {
-      if (element[i].type == 0) {
-          setTurnout(element[i].address, element[i].state);
-      }
-    }
-  }
-}
-
-
-
-/* ------------------------------------------------------------------------- *
- *                                                              setTurnout()
- * ------------------------------------------------------------------------- */
-void setTurnout(int address, int state) {
-  delay(500);
-  debug("Setting turnout "+String(address)+" to ");
-  debugln(state == 0 ? F("Straight") : F("Thrown") );
-}
-
-
-
-/* ------------------------------------------------------------------------- *
- *                                                                setPower()
- * ------------------------------------------------------------------------- */
-void setPower(int state) {
-  debug("Setting Power ");
-  debugln(state == 0 ? F("OFF") : F("ON") );
-  state ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
-
-}
-
-
-
-/* ------------------------------------------------------------------------- *
- *                                                            showElements()
- * ------------------------------------------------------------------------- */
-void showElements() {
-  debugln(F("Show elements table:"));
-  for (int i=0; i<nElements; i++) {
-    debug(F("Type: "));
-    debug(element[i].type);
-    debug(F(" - Module: "));
-    debug(element[i].module);
-    switch (element[i].type) {
-      case 0:
-        debug(F(" - Turnout: "));
-        break;
-
-      case 1:
-        debug(F(" - Locomotive: "));
-        break;
-        
-      case 90:
-        debug(F(" - Funtion: "));
-        break;
-        
-      case 99:
-        debug(F(" - Power: "));
-        break;
-
-      default:
-        break;
-    }
-    
-    debug(element[i].address);
-    debug(F(" - "));
-
-    switch (element[i].type) {
-      case 0:
-        debug(element[i].state == 0 ? F("Straight") : F("Thrown") ); debugln();
-        break;
-
-      case 1:
-        debug("Speed: "+String(element[i].state)); debugln();
-        break;
-
-      case 90:
-        if (element[i].address == 9001) debugln("Store");
-        if (element[i].address == 9002) debugln("Recall");
-        break;
-      
-      case 99:
-        debugln(element[i].state == 0 ? "OFF" : "ON" );
-        break;
-
-      default:
-        break;
-
-    }
-  }
 }
 
 
@@ -373,6 +264,7 @@ void loop() {
     LocoNet.processSwitchSensorMessage(LnPacket);
   }
 
+/*
   // button pressed
   if(digitalRead(BUTTON_PIN) == LOW && !buttonPressed) {
 
@@ -394,27 +286,8 @@ void loop() {
     }
 
   }
+*/
 
-}
-
-
-
-/* ------------------------------------------------------------------------- *
- *       Show initial screen, then paste template          doInitialScreen()
- * ------------------------------------------------------------------------- */
-void doInitialScreen(int s) {
-  
-  LCD_display(display, 0, 0, F("GAW-MR-control v    "));
-  LCD_display(display, 0, 16, progVersion);
-  LCD_display(display, 1, 0, F("(c) Gerard Wassink  "));
-  LCD_display(display, 2, 0, F("GNU public license  "));
-
-  delay(s * 1000);
-
-  LCD_display(display, 0, 0, F("                    "));
-  LCD_display(display, 1, 0, F("                    "));
-  LCD_display(display, 2, 0, F("                    "));
-  
 }
 
 
@@ -470,10 +343,27 @@ void handleLocomotive(int index) {
  * ------------------------------------------------------------------------- */
 void handleTurnout(int index) {
   element[index].state = !element[index].state;   // Flip state
+
   debug("Turnout # "); 
   debug(element[index].address); debug(" - ");
   debugln(element[index].state ? "straight" : "thrown"); 
-  displayTurnoutState(index);
+  
+  setTurnout(index);
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                              setTurnout()
+ * ------------------------------------------------------------------------- */
+void setTurnout(int index) {
+  delay(500);
+  debug("Set turnout "+String(element[index].address)+" to ");
+  debugln(element[index].state == 0 ? F("Straight") : F("Thrown") );
+
+  LCD_display(display, 0, 0, F("Turnout             "));
+  LCD_display(display, 0, 8, String(element[index].address));
+  LCD_display(display, 0,12, element[index].state == 0 ? F("Straight") : F("Thrown") );
 }
 
 
@@ -486,12 +376,16 @@ void handleFunction(int index) {
 
   switch(function) {
 
-    case 9001:
+    case 9001:                              // Save status
       storeState();
       break;
   
-    case 9002:
+    case 9002:                              // Recall status
       recallState();
+      break;
+
+    case 9003:                              // Show elements
+      showElements();
       break;
 
     default:
@@ -531,23 +425,23 @@ void storeState() {
  *                                                             handlePower()
  * ------------------------------------------------------------------------- */
 void handlePower(int index) {
-  debug("POWER # "); 
   element[index].state = !element[index].state;   // Flip state
-  debug(element[index].address); debug(" - ");
-  debugln(element[index].state ? "ON" : "OFF");
-  element[index].state ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
+
+  setPower(element[index].state);
+
   LCD_display(display, 3,17, element[index].state ? "ON " : "OFF");
 }
 
 
 
 /* ------------------------------------------------------------------------- *
- *                                                     displayTurnoutState()
+ *                                                                setPower()
  * ------------------------------------------------------------------------- */
-void displayTurnoutState(int index) {
-    LCD_display(display, 0, 0, F("Turnout             "));
-    LCD_display(display, 0, 8, String(element[index].address));
-    LCD_display(display, 0,12, element[index].state ? "straight" : "thrown  ");
+void setPower(int state) {
+  debug("Setting Power ");
+  debugln(state == 0 ? F("OFF") : F("ON") );
+  state ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
+
 }
 
   
@@ -561,3 +455,108 @@ void LCD_display(LiquidCrystal_I2C screen, int row, int col, String text) {
 }
 
 
+
+/* ------------------------------------------------------------------------- *
+ *                                                            showElements()
+ * ------------------------------------------------------------------------- */
+void showElements() {
+  debugln(F("Show elements table:"));
+  for (int i=0; i<nElements; i++) {
+    debug(F("Type: "));
+    debug(element[i].type);
+    debug(F(" - Module: "));
+    debug(element[i].module);
+    switch (element[i].type) {
+      case 0:
+        debug(F(" - Turnout: "));
+        break;
+
+      case 1:
+        debug(F(" - Locomotive: "));
+        break;
+        
+      case 90:
+        debug(F(" - Funtion: "));
+        break;
+        
+      case 99:
+        debug(F(" - Power: "));
+        break;
+
+      default:
+        break;
+    }
+    
+    debug(element[i].address);
+    debug(F(" - "));
+
+    switch (element[i].type) {
+      case 0:
+        debug(element[i].state == 0 ? F("Straight") : F("Thrown") ); debugln();
+        break;
+
+      case 1:
+        debug("Speed: "+String(element[i].state)); debugln();
+        break;
+
+      case 90:
+        if (element[i].address == 9001) debugln("Store");
+        if (element[i].address == 9002) debugln("Recall");
+        if (element[i].address == 9003) debugln("Show Elements");
+        break;
+      
+      case 99:
+        debugln(element[i].state == 0 ? "OFF" : "ON" );
+        break;
+
+      default:
+        break;
+
+    }
+  }
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *       Show initial screen, then paste template          doInitialScreen()
+ * ------------------------------------------------------------------------- */
+void doInitialScreen(int s) {
+  
+  LCD_display(display, 0, 0, F("GAW-MR-control v    "));
+  LCD_display(display, 0, 16, progVersion);
+  LCD_display(display, 1, 0, F("(c) Gerard Wassink  "));
+  LCD_display(display, 2, 0, F("GNU public license  "));
+
+  delay(s * 1000);
+
+  LCD_display(display, 0, 0, F("                    "));
+  LCD_display(display, 1, 0, F("                    "));
+  LCD_display(display, 2, 0, F("                    "));
+  
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                              resetState()
+ * ------------------------------------------------------------------------- */
+void restoreState() {
+  int pwr = 0;                              // Assume power off
+
+  for (int i=0; i<nElements; i++) {         // FIRST: restore power state
+    if (element[i].type == 99) {
+        pwr = element[i].state;
+        setPower(element[i].state);
+    }
+  }
+
+  if (pwr) {                                // Power on? then turnouts
+    for (int i=0; i<nElements; i++) {
+      if (element[i].type == 0) {
+          setTurnout(i);
+      }
+    }
+  }
+
+}
