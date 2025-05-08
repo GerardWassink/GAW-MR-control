@@ -11,9 +11,10 @@
  *   0.4  : Built in save and recall for status table
  *          Added text to the README
  *   0.5  : Code cleanup & little corrections
+ *          expanded matrix to 8 x 8
  *
- *---------------------------------------------                                                          ---------------------------- */
-#define progVersion "0.4"  // Program version definition
+ *------------------------------------------------------------------------- */
+#define progVersion "0.5"  // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
@@ -69,8 +70,8 @@
 /* ------------------------------------------------------------------------- *
  *                                                               Definitions
  * ------------------------------------------------------------------------- */
-#define ROWS 6
-#define COLS 6
+#define ROWS 8
+#define COLS 8
 
 #define POWEROFF 0
 #define POWERON  1
@@ -89,7 +90,7 @@
  *                                                          Global variables
  * ------------------------------------------------------------------------- */
 lnMsg *LnPacket;
-int turnoutDirection;
+int SwitchDirection;
 
 bool buttonPressed = false;
 
@@ -107,7 +108,7 @@ struct MR_data{
 
 struct MR_data element[] = {
 
-// Types: 0 = turnout, 1 = Locomotive, 99 = power
+// Types: 0 = Switch, 1 = Locomotive, 99 = power
 
 //              Module 1
    0, 1, 101, STRAIGHT,
@@ -172,16 +173,18 @@ struct MR_data element[] = {
  *         The buttons are handled in a 6 x 6 grid
  * ------------------------------------------------------------------------ */
 char keys[ROWS][COLS] = {
-  { 1,  2,  3,  4,  5,  6},                 // Pointers into the element 
-  { 7,  8,  9, 10, 11, 12},                 //   array for each button
-  {13, 14, 15, 16, 17, 18},
-  {19, 20, 21, 22, 23, 24},
-  {25, 26, 27, 28, 29, 30},
-  {31, 32, 33, 34, 35, 36},
+  { 1,  2,  3,  4,  5,  6,  7,  8},                 // Pointers into the element 
+  { 9, 10, 11, 12, 13, 14, 15, 16},                 //   array for each button
+  {17, 18, 19, 20, 21, 22, 23, 24},
+  {25, 26, 27, 28, 29, 30, 31, 32},
+  {33, 34, 35, 36, 37, 38, 39, 40},
+  {41, 42, 43, 44, 45, 46, 47, 48},
+  {49, 50, 51, 52, 53, 54, 55, 56},
+  {57, 58, 59, 60, 61, 62, 63, 64}
 };
 
-byte rowPins[ROWS] = {22, 23, 24, 25, 26, 27}; // row pins of the controlPanel
-byte colPins[COLS] = {28, 29, 30, 31, 32, 33}; // column pins of the controlPanel
+byte rowPins[ROWS] = {22, 23, 24, 25, 26, 27, 28, 29}; // row pins of the controlPanel
+byte colPins[COLS] = {30, 31, 32, 33, 34, 35, 36, 37}; // column pins of the controlPanel
 
 
 /* ------------------------------------------------------------------------- *
@@ -268,13 +271,13 @@ void loop() {
   // button pressed
   if(digitalRead(BUTTON_PIN) == LOW && !buttonPressed) {
 
-    if(turnoutDirection == 0) {
-      turnoutDirection = 1;
+    if(SwitchDirection == 0) {
+      SwitchDirection = 1;
     } else {
-      turnoutDirection = 0;
+      SwitchDirection = 0;
     }
 
-    LocoNet.requestSwitch(TURNOUT_ADDRESS, 0, turnoutDirection);
+    LocoNet.requestSwitch(Switch_ADDRESS, 0, SwitchDirection);
     buttonPressed = true;
 
   } else {  // button released
@@ -301,8 +304,8 @@ void handleButtons(char key) {
 
   switch(element[index].type) {
 
-    case 0:                                 // TURNOUT TYPE
-      handleTurnout(index);
+    case 0:                                 // Switch TYPE
+      handleSwitch(index);
       break;
 
     case 1:                                 // LOCOMOTIVE TYPE
@@ -333,37 +336,53 @@ void handleLocomotive(int index) {
   debug("Loc # ");                                // Just display address
   debugln(element[index].address);                //   for future use
   activeLoc = element[index].address;
-  LCD_display(display, 1, 0, "Active Loc "+String(activeLoc)+"   ");
+
+  setLocSpeed(index);
 }
 
   
 
 /* ------------------------------------------------------------------------- *
- *                                                           handleTurnout()
+ *                                                           handleSwitch()
  * ------------------------------------------------------------------------- */
-void handleTurnout(int index) {
+void setLocSpeed(int index) {
+  LCD_display(display, 1, 0, "Active Loc "+String(activeLoc)+"   ");
+
+// SET LOCONET COMMAND TO Z21
+//   TO SET SWITCH
+}
+
+  
+
+/* ------------------------------------------------------------------------- *
+ *                                                           handleSwitch()
+ * ------------------------------------------------------------------------- */
+void handleSwitch(int index) {
   element[index].state = !element[index].state;   // Flip state
 
-  debug("Turnout # "); 
+  debug("Switch # "); 
   debug(element[index].address); debug(" - ");
   debugln(element[index].state ? "straight" : "thrown"); 
   
-  setTurnout(index);
+  setSwitch(index);
 }
 
 
 
 /* ------------------------------------------------------------------------- *
- *                                                              setTurnout()
+ *                                                              setSwitch()
  * ------------------------------------------------------------------------- */
-void setTurnout(int index) {
+void setSwitch(int index) {
   delay(500);
-  debug("Set turnout "+String(element[index].address)+" to ");
+  debug("Set Switch "+String(element[index].address)+" to ");
   debugln(element[index].state == 0 ? F("Straight") : F("Thrown") );
 
-  LCD_display(display, 0, 0, F("Turnout             "));
-  LCD_display(display, 0, 8, String(element[index].address));
+  LCD_display(display, 0, 0, F("Switch             "));
+  LCD_display(display, 0, 7, String(element[index].address));
   LCD_display(display, 0,12, element[index].state == 0 ? F("Straight") : F("Thrown") );
+
+// SET LOCONET COMMAND TO Z21
+//   TO SET SWITCH
 }
 
 
@@ -442,6 +461,8 @@ void setPower(int state) {
   debugln(state == 0 ? F("OFF") : F("ON") );
   state ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
 
+// SET LOCONET COMMAND TO Z21
+//   TO SET POWER STATE
 }
 
   
@@ -462,13 +483,14 @@ void LCD_display(LiquidCrystal_I2C screen, int row, int col, String text) {
 void showElements() {
   debugln(F("Show elements table:"));
   for (int i=0; i<nElements; i++) {
-    debug(F("Type: "));
+    debug(String(i+1));
+    debug(F(" - Type: "));
     debug(element[i].type);
     debug(F(" - Module: "));
     debug(element[i].module);
     switch (element[i].type) {
       case 0:
-        debug(F(" - Turnout: "));
+        debug(F(" - Switch: "));
         break;
 
       case 1:
@@ -551,10 +573,10 @@ void restoreState() {
     }
   }
 
-  if (pwr) {                                // Power on? then turnouts
+  if (pwr) {                                // Power on? then Switchs
     for (int i=0; i<nElements; i++) {
       if (element[i].type == 0) {
-          setTurnout(i);
+          setSwitch(i);
       }
     }
   }
