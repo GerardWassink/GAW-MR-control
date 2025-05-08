@@ -10,3 +10,8 @@ For the momentary push buttons on the panel I use the 'keypad' library to define
 An I2C LCD display (20 x 4) screen is used for visible output.
 
 Communication to and from the command station will take place through the Loconet protocol.
+
+## Prototyping
+![Prototype setup](./gfx/Prototyping.jpg "Prototype setup")
+
+![List of elements and commands](./gfx/element_table.png "Table of elements and commands")
