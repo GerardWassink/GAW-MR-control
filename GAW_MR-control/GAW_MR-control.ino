@@ -8,9 +8,10 @@
  *   0.1  : Initial code base
  *   0.2  : Added 20x4 LCD display
  *   0.3  : Intermediate code cleanup
+ *   0.4  : Built in save and recall for status table
  *
  *---------------------------------------------                                                          ---------------------------- */
-#define progVersion "0.3"  // Program version definition
+#define progVersion "0.4"  // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
@@ -75,7 +76,8 @@
 #define STRAIGHT 0
 #define THROWN 1
 
-#define nElements sizeof(element) / sizeof(MR_data)
+#define entrySize sizeof(MR_data)
+#define nElements sizeof(element) / entrySize
 
 #define memSize EEPROM.length()             // Amount of EEPROM memory
 
@@ -107,8 +109,6 @@ struct MR_data{
   int address;
   int state;
 };
-
-int entrySize = sizeof(MR_data);
 
 struct MR_data element[] = {
 
@@ -154,15 +154,18 @@ struct MR_data element[] = {
    0, 8, 805, STRAIGHT,
 
 //              Locomotives
-   1, 0, 344, 0,
-   1, 0, 386, 0,
-   1, 0, 611, 0,
-   1, 0, 612, 0,
-   1, 0, 611, 0,
-   1, 0,2412, 0,
+   1, 0, 344, 0,                            // Hondekop
+   1, 0, 386, 0,                            // BR 201 386
+   1, 0, 611, 0,                            // NS 611
+   1, 0, 612, 0,                            // NS 612
+   1, 0,2412, 0,                            // NS 2412
+
+//              Functions
+  90, 0,9001, 0,                            // Store state
+  90, 0,9002, 0,                            // Recall state
 
 //              POWER
-  99, 0,   0, POWEROFF
+  99, 0,9999, POWEROFF,                      // Roco Z21
 
 };
 
@@ -208,12 +211,13 @@ void setup() {
 
   display.init();                           // Initialize display
   display.backlight();                      // Backlights on by default
+
   doInitialScreen(3);                       // Show when no debugging
 
   debugstart(115200);                       // Start serial
 
   debugln(F("==============================="));
-  debug("GAW-Turnouts v");
+  debug("GAW-MR-Control v");
   debugln(progVersion);
   debugln(F("==============================="));
 
@@ -223,30 +227,127 @@ void setup() {
   debug("tableSize = "); debugln(sizeof(element));
   debug("nElements = "); debugln(nElements);
 
-#if DEBUG_LVL > 1
-  debugln(F("Show elements:"));
-  for (int i=0; i<25; i++) {
-    debug(F("Type: "));
-    debug(element[i].type);
-    debug(F(" - Module: "));
-    debug(element[i].module);
-    debug(F(" - Element: "));
-    debug(element[i].address);
-    debug(" - State: ");
-    element[i].state == 0? debug("Straight") : debug("Thrown");
-    debugln();
-  }
-#endif
-
   debugln(F("Initialize LocoNet"));
   LocoNet.init();                           // Initialize Loconet
 
-  LCD_display(display, 1, 0, F("                    "));
-  LCD_display(display, 2, 0, F("                    "));
+  debugln(F("Restore state from memory"));
+  recallState();                            // Recall state from EEPROM
+
+  resetState();                             // Make state as it was!
+
+#if DEBUG_LVL > 1
+  showElements();
+#endif
 
   debugln(F("Setup done, ready for operations"));
   debugln(F("==============================="));
 
+}
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                              resetState()
+ * ------------------------------------------------------------------------- */
+void resetState() {
+  int pwr = 0;
+  for (int i=0; i<nElements; i++) {         // FIRST: restore power state
+    if (element[i].type == 99) {
+        pwr = element[i].state;
+        setPower(element[i].state);
+    }
+  }
+
+  if (pwr) {                                // Power on? then turnouts
+    for (int i=0; i<nElements; i++) {
+      if (element[i].type == 0) {
+          setTurnout(element[i].address, element[i].state);
+      }
+    }
+  }
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                              setTurnout()
+ * ------------------------------------------------------------------------- */
+void setTurnout(int address, int state) {
+  delay(500);
+  debug("Setting turnout "+String(address)+" to ");
+  debugln(state == 0 ? F("Straight") : F("Thrown") );
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                                setPower()
+ * ------------------------------------------------------------------------- */
+void setPower(int state) {
+  debug("Setting Power ");
+  debugln(state == 0 ? F("OFF") : F("ON") );
+  state ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
+
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                            showElements()
+ * ------------------------------------------------------------------------- */
+void showElements() {
+  debugln(F("Show elements table:"));
+  for (int i=0; i<nElements; i++) {
+    debug(F("Type: "));
+    debug(element[i].type);
+    debug(F(" - Module: "));
+    debug(element[i].module);
+    switch (element[i].type) {
+      case 0:
+        debug(F(" - Turnout: "));
+        break;
+
+      case 1:
+        debug(F(" - Locomotive: "));
+        break;
+        
+      case 90:
+        debug(F(" - Funtion: "));
+        break;
+        
+      case 99:
+        debug(F(" - Power: "));
+        break;
+
+      default:
+        break;
+    }
+    
+    debug(element[i].address);
+    debug(F(" - "));
+
+    switch (element[i].type) {
+      case 0:
+        debug(element[i].state == 0 ? F("Straight") : F("Thrown") ); debugln();
+        break;
+
+      case 1:
+        debug("Speed: "+String(element[i].state)); debugln();
+        break;
+
+      case 90:
+        if (element[i].address == 9001) debugln("Store");
+        if (element[i].address == 9002) debugln("Recall");
+        break;
+      
+      case 99:
+        debugln(element[i].state == 0 ? "OFF" : "ON" );
+        break;
+
+      default:
+        break;
+
+    }
+  }
 }
 
 
@@ -257,7 +358,8 @@ void setup() {
 void loop() {
 
   char key = controlPanel.getKey();
-  if(key) {                                 // Check for a valid key.
+  if(key) {                                 // Check for a valid key
+    debugln("received "+String((int)key));
     handleButtons(key);                    //   and handle key
   }
 
@@ -308,6 +410,10 @@ void doInitialScreen(int s) {
   LCD_display(display, 2, 0, F("GNU public license  "));
 
   delay(s * 1000);
+
+  LCD_display(display, 0, 0, F("                    "));
+  LCD_display(display, 1, 0, F("                    "));
+  LCD_display(display, 2, 0, F("                    "));
   
 }
 
@@ -318,32 +424,24 @@ void doInitialScreen(int s) {
  * ------------------------------------------------------------------------- */
 void handleButtons(char key) {
 
-  int index = key - 1;                       // Keycode to table index
+  int index = key - 1;                      // Keycode to table index
 
   switch(element[index].type) {
 
-    case 0:                                           // TURNOUT
-      element[index].state = !element[index].state;   // Flip state
-      debug("Turnout # "); 
-      debug(element[index].address); debug(" - ");
-      debugln(element[index].state ? "straight" : "thrown"); 
-      displayTurnoutState(index);
+    case 0:                                 // TURNOUT TYPE
+      handleTurnout(index);
       break;
 
-    case 1:                                           // LOCOMOTIVE
-      debug("Loc # ");                                // Just display address
-      debugln(element[index].address);                //   future use
-      activeLoc = element[index].address;
-      LCD_display(display, 2, 0, "Loc "+String(activeLoc)+"   ");
+    case 1:                                 // LOCOMOTIVE TYPE
+      handleLocomotive(index);
       break;
 
-    case 99:                                          // POWER 
-      element[index].state = !element[index].state;   // Flip state
-      debug("POWER # "); 
-      debug(element[index].address); debug(" - ");
-      debugln(element[index].state ? "ON" : "OFF");
-      element[index].state ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
-      LCD_display(display, 3,17, element[index].state ? "ON " : "OFF");
+    case 90:                                // FUNCTION TYPE
+      handleFunction(index);
+      break;
+ 
+    case 99:                                // POWER TYPE
+      handlePower(index);
       break;
 
     default: 
@@ -356,12 +454,100 @@ void handleButtons(char key) {
   
 
 /* ------------------------------------------------------------------------- *
+ *                                                        handleLocomotive()
+ * ------------------------------------------------------------------------- */
+void handleLocomotive(int index) {
+  debug("Loc # ");                                // Just display address
+  debugln(element[index].address);                //   for future use
+  activeLoc = element[index].address;
+  LCD_display(display, 1, 0, "Active Loc "+String(activeLoc)+"   ");
+}
+
+  
+
+/* ------------------------------------------------------------------------- *
+ *                                                           handleTurnout()
+ * ------------------------------------------------------------------------- */
+void handleTurnout(int index) {
+  element[index].state = !element[index].state;   // Flip state
+  debug("Turnout # "); 
+  debug(element[index].address); debug(" - ");
+  debugln(element[index].state ? "straight" : "thrown"); 
+  displayTurnoutState(index);
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                          handleFunction()
+ * ------------------------------------------------------------------------- */
+void handleFunction(int index) {
+  int function = element[index].address;
+
+  switch(function) {
+
+    case 9001:
+      storeState();
+      break;
+  
+    case 9002:
+      recallState();
+      break;
+
+    default:
+      break;
+
+  }
+
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                             recallState()
+ * ------------------------------------------------------------------------- */
+void recallState() {
+  for (int i=0; i<nElements; i++) {
+    EEPROM.get(i*entrySize, element[i]);
+  }
+  LCD_display(display, 3, 0, "State recalled      ");
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                              storeState()
+ * ------------------------------------------------------------------------- */
+void storeState() {
+  for (int i=0; i<nElements; i++) {
+    EEPROM.put(i*entrySize, element[i]);
+  }
+  LCD_display(display, 3, 0, "State stored        ");
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                             handlePower()
+ * ------------------------------------------------------------------------- */
+void handlePower(int index) {
+  debug("POWER # "); 
+  element[index].state = !element[index].state;   // Flip state
+  debug(element[index].address); debug(" - ");
+  debugln(element[index].state ? "ON" : "OFF");
+  element[index].state ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
+  LCD_display(display, 3,17, element[index].state ? "ON " : "OFF");
+}
+
+
+
+/* ------------------------------------------------------------------------- *
  *                                                     displayTurnoutState()
  * ------------------------------------------------------------------------- */
 void displayTurnoutState(int index) {
-    LCD_display(display, 1, 0, F("Turnout             "));
-    LCD_display(display, 1, 8, String(element[index].address));
-    LCD_display(display, 1,12, element[index].state ? "straight" : "thrown  ");
+    LCD_display(display, 0, 0, F("Turnout             "));
+    LCD_display(display, 0, 8, String(element[index].address));
+    LCD_display(display, 0,12, element[index].state ? "straight" : "thrown  ");
 }
 
   
