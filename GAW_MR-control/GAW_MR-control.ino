@@ -486,8 +486,6 @@ void showElements() {
     debug(String(i+1));
     debug(F(" - Type: "));
     debug(element[i].type);
-    debug(F(" - Module: "));
-    debug(element[i].module);
     switch (element[i].type) {
       case 0:
         debug(F(" - Switch: "));
@@ -514,7 +512,11 @@ void showElements() {
 
     switch (element[i].type) {
       case 0:
-        debug(element[i].state == 0 ? F("Straight") : F("Thrown") ); debugln();
+        debug(element[i].state == 0 ? F("Straight") : F("Thrown") );
+        if (element[i].type == 0) {
+          debug(F(" - Module: "));
+          debug(element[i].module); debugln();
+        }
         break;
 
       case 1:
