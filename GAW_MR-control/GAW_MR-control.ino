@@ -221,7 +221,10 @@ void setup() {
   debugln(progVersion);
   debugln(F("==============================="));
 
+  debugln("");
+  debugln(F("==============================="));
   debugln(F("Start initialization"));
+  debugln(F("==============================="));
   debug("MemSize   = "); debugln(memSize);
   debug("entrySize = "); debugln(entrySize);
   debug("tableSize = "); debugln(sizeof(element));
@@ -239,6 +242,7 @@ void setup() {
   showElements();
 #endif
 
+  debugln(F("==============================="));
   debugln(F("Setup done, ready for operations"));
   debugln(F("==============================="));
 
@@ -377,7 +381,7 @@ void setSwitch(int index) {
   debug("Set Switch "+String(element[index].address)+" to ");
   debugln(element[index].state == 0 ? F("Straight") : F("Thrown") );
 
-  LCD_display(display, 0, 0, F("Switch             "));
+  LCD_display(display, 0, 0, F("Switch              "));
   LCD_display(display, 0, 7, String(element[index].address));
   LCD_display(display, 0,12, element[index].state == 0 ? F("Straight") : F("Thrown") );
 
@@ -422,8 +426,13 @@ void handleFunction(int index) {
 void recallState() {
   for (int i=0; i<nElements; i++) {
     EEPROM.get(i*entrySize, element[i]);
+    if (element[i].type == 99) {
+      setPower(element[i].state);
+    }
   }
-  LCD_display(display, 3, 0, "State recalled      ");
+  LCD_display(display, 3, 0, "Recalled");
+  delay(1000);
+  LCD_display(display, 3, 0, F("        "));
 }
 
 
@@ -435,7 +444,9 @@ void storeState() {
   for (int i=0; i<nElements; i++) {
     EEPROM.put(i*entrySize, element[i]);
   }
-  LCD_display(display, 3, 0, "State stored        ");
+  LCD_display(display, 3, 0, "Stored");
+  delay(1000);
+  LCD_display(display, 3, 0, F("      "));
 }
 
 
@@ -447,8 +458,6 @@ void handlePower(int index) {
   element[index].state = !element[index].state;   // Flip state
 
   setPower(element[index].state);
-
-  LCD_display(display, 3,17, element[index].state ? "ON " : "OFF");
 }
 
 
@@ -460,6 +469,9 @@ void setPower(int state) {
   debug("Setting Power ");
   debugln(state == 0 ? F("OFF") : F("ON") );
   state ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
+
+  LCD_display(display, 3,10, "Power: ");
+  LCD_display(display, 3,17, state ? "ON " : "OFF");
 
 // SET LOCONET COMMAND TO Z21
 //   TO SET POWER STATE
