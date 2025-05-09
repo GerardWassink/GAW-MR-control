@@ -13,6 +13,7 @@
  *   0.5  : Code cleanup & little corrections
  *          expanded matrix to 8 x 8
  *          improved initialization
+ *          Multiplexers inbouwen voor LEDS
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.5"  // Program version definition
@@ -67,6 +68,7 @@
 #include <LocoNet.h>                        // LocoNet library
 #include <Wire.h>                           // I2C comms library
 #include <LiquidCrystal_I2C.h>              // LCD library
+#include <Adafruit_MCP23X17.h>              // I/O expander library
 
 /* ------------------------------------------------------------------------- *
  *                                                               Definitions
@@ -197,9 +199,22 @@ Keypad controlPanel = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 /* ------------------------------------------------------------------------- *
  *       Create objects with addres(ses) for the LCD screen
  * ------------------------------------------------------------------------- */
-LiquidCrystal_I2C display(0x26,20,4);          // Initialize display
+LiquidCrystal_I2C display(0x26,20,4);       // Initialize display
 
+/* ------------------------------------------------------------------------- *
+ *       Create objects with addres(ses) for the multiplexer MCP23017
+ * ------------------------------------------------------------------------- */
+struct MCPINFO {
+  Adafruit_MCP23X17 mcp;
+  uint8_t address;  
+};
 
+MCPINFO mcps[] {
+  {Adafruit_MCP23X17(), 0x20},
+  {Adafruit_MCP23X17(), 0x21},
+  {Adafruit_MCP23X17(), 0x22},
+  {Adafruit_MCP23X17(), 0x23},
+};
 
 /* ------------------------------------------------------------------------- *
  *                                                   Initial routine setup()
@@ -230,6 +245,26 @@ void setup() {
   debug("entrySize = "); debugln(entrySize);
   debug("tableSize = "); debugln(sizeof(element));
   debug("nElements = "); debugln(nElements);
+
+  debugln(F("Initializing: "));
+  for (int i=0; i<4; i++) {
+    debug(F("- multiplexer #"));
+    debugln(i);
+    mcps[i].mcp.begin_I2C();
+    for (int j = 0; j < 16; j++) {
+      mcps[i].mcp.pinMode(j, OUTPUT);
+    }
+  }
+  debugln(F("Multiplexers initialized"));
+
+  for (int i = 0; i < 16; i++) {
+    mcps[1].mcp.digitalWrite(i, LOW);
+    mcps[2].mcp.digitalWrite(i, LOW);
+  }
+  debugln(F("Multiplexers ready"));
+
+  mcps[1].mcp.digitalWrite(8, HIGH);
+  mcps[2].mcp.digitalWrite(8, HIGH);
 
   debugln(F("Initialize LocoNet"));
   LocoNet.init();                           // Initialize Loconet
