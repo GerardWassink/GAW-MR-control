@@ -12,6 +12,7 @@
  *          Added text to the README
  *   0.5  : Code cleanup & little corrections
  *          expanded matrix to 8 x 8
+ *          improved initialization
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.5"  // Program version definition
@@ -235,12 +236,13 @@ void setup() {
 
   debugln(F("Restore state from memory"));
   recallState();                            // Recall state from EEPROM
-
-  restoreState();                             // Make state as it was!
+  restoreState();                           //   and make state as it was!
 
 #if DEBUG_LVL > 1
   showElements();
 #endif
+
+  LCD_display(display, 0, 0, F("System ready        "));
 
   debugln(F("==============================="));
   debugln(F("Setup done, ready for operations"));
@@ -426,9 +428,6 @@ void handleFunction(int index) {
 void recallState() {
   for (int i=0; i<nElements; i++) {
     EEPROM.get(i*entrySize, element[i]);
-    if (element[i].type == 99) {
-      setPower(element[i].state);
-    }
   }
   LCD_display(display, 3, 0, "Recalled");
   delay(1000);
@@ -475,16 +474,6 @@ void setPower(int state) {
 
 // SET LOCONET COMMAND TO Z21
 //   TO SET POWER STATE
-}
-
-  
-
-/* ------------------------------------------------------------------------- *
- *       Routine to display stuff on the display of choice     LCD_display()
- * ------------------------------------------------------------------------- */
-void LCD_display(LiquidCrystal_I2C screen, int row, int col, String text) {
-    screen.setCursor(col, row);
-    screen.print(text);
 }
 
 
@@ -595,4 +584,14 @@ void restoreState() {
     }
   }
 
+}
+
+  
+
+/* ------------------------------------------------------------------------- *
+ *       Routine to display stuff on the display of choice     LCD_display()
+ * ------------------------------------------------------------------------- */
+void LCD_display(LiquidCrystal_I2C screen, int row, int col, String text) {
+    screen.setCursor(col, row);
+    screen.print(text);
 }
