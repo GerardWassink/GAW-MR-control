@@ -15,6 +15,7 @@
  *          improved initialization
  *          Multiplexers inbouwen voor LEDS
  *   0.6    Fighting with the multiplexer code
+ *          Added and improved comments
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.6"                   // Program version definition
@@ -98,12 +99,12 @@
 lnMsg *LnPacket;
 int SwitchDirection;
 
-bool buttonPressed = false;
-
 int activeLoc = 0;
 
 /* ------------------------------------------------------------------------- *
  *                                                         Element structure
+ * The element[] array holds values for objects on the control panel. At this
+ * point Switches, Locomotives, Functions and Power. See code below.
  * ------------------------------------------------------------------------- */
 struct MR_data{
   int type;
@@ -117,22 +118,23 @@ struct MR_data element[] = {
 // Types: 0 = Switch, 1 = Locomotive, 99 = power
 
 // ===== CAVEAT =====
-// Switches MUST come first, calculations for the LED multiplexers are based
-// on the index of the switches in the element array
+// Switches MUST come first in this array, as calculations for the 
+// LED multiplexers are based on the index of the switches in the 
+// element array
 // ===== CAVEAT =====
 
-//              Module 1
+//              Layout module 1
    0, 1, 101, STRAIGHT,
    0, 1, 102, STRAIGHT,
    0, 1, 103, STRAIGHT,
    0, 1, 104, STRAIGHT,
 
-//              Module 2
+//              Layout module 2
    0, 2, 201, STRAIGHT,
    0, 2, 202, STRAIGHT,
    0, 2, 203, STRAIGHT,
 
-//              Module 4
+//              Layout module 4
    0, 4, 401, STRAIGHT,
    0, 4, 402, STRAIGHT,
    0, 4, 403, STRAIGHT,
@@ -141,19 +143,19 @@ struct MR_data element[] = {
    0, 4, 406, STRAIGHT,
    0, 4, 407, STRAIGHT,
 
-//              Module 5
+//              MLayout mdule 5
    0, 5, 501, STRAIGHT,
    0, 5, 502, STRAIGHT,
 
-//              Module 6
+//              Layout module 6
    0, 6, 601, STRAIGHT,
    0, 6, 602, STRAIGHT,
    0, 6, 603, STRAIGHT,
 
-//              Module 7
+//              Layout module 7
    0, 7, 701, STRAIGHT,
 
-//              Module 8
+//              Layout module 8
    0, 8, 801, STRAIGHT,
    0, 8, 802, STRAIGHT,
    0, 8, 803, STRAIGHT,
@@ -181,7 +183,7 @@ struct MR_data element[] = {
 /* ------------------------------------------------------------------------ *
  *       Define controlPanel variables
  *         this is the control panel for the model railroad layout
- *         The buttons are handled in a 6 x 6 grid
+ *         The buttons are handled in a 8 x 8 grid
  * ------------------------------------------------------------------------ */
 char keys[ROWS][COLS] = {
   { 1,  2,  3,  4,  5,  6,  7,  8},                 // Pointers into the element 
@@ -209,8 +211,16 @@ Keypad controlPanel = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS);
  * ------------------------------------------------------------------------- */
 LiquidCrystal_I2C display(0x26,20,4);       // Initialize display
 
+
 /* ------------------------------------------------------------------------- *
- *       Create objects with addres(ses) for the multiplexer MCP23017
+ *              Create objects with addres(ses) for the multiplexer MCP23017
+ *
+ * MCP23017's are used in pairs for operating the LED's indicating the 
+ * switch positions. The first ones (even address) for the THROWN position
+ * LED's, the second ones (odd address) for the STRAIGHT position LED's.
+ * One pair serves 16 switches.
+ * The multiplexer MCP23017's are addressed from 0x20 to max 0x27.
+ * Their definitions are stored in the mcps[] array, see below.
  * ------------------------------------------------------------------------- */
 struct MCPINFO {
   Adafruit_MCP23X17 mcp;
@@ -218,22 +228,20 @@ struct MCPINFO {
 };
 
 MCPINFO mcps[] {
-  {Adafruit_MCP23X17(), 0x20},              // multiplexer 1
-  {Adafruit_MCP23X17(), 0x21},              // multiplexer 2
-  {Adafruit_MCP23X17(), 0x22},              // multiplexer 3
-  {Adafruit_MCP23X17(), 0x23},              // multiplexer 4
-//  {Adafruit_MCP23X17(), 0x24},              // multiplexer 5
-//  {Adafruit_MCP23X17(), 0x25},              // multiplexer 6
-//  {Adafruit_MCP23X17(), 0x26},              // multiplexer 7
-//  {Adafruit_MCP23X17(), 0x27},              // multiplexer 8
+  {Adafruit_MCP23X17(), 0x20},              // multiplexer 0
+  {Adafruit_MCP23X17(), 0x21},              // multiplexer 1
+  {Adafruit_MCP23X17(), 0x22},              // multiplexer 2
+  {Adafruit_MCP23X17(), 0x23},              // multiplexer 3
+//  {Adafruit_MCP23X17(), 0x24},              // multiplexer 4
+//  {Adafruit_MCP23X17(), 0x25},              // multiplexer 5
+//  {Adafruit_MCP23X17(), 0x26},              // multiplexer 6
+//  {Adafruit_MCP23X17(), 0x27},              // multiplexer 7
 };
 
 /* ------------------------------------------------------------------------- *
  *                                                   Initial routine setup()
  * ------------------------------------------------------------------------- */
 void setup() {
-
-  delay(1000);                              // Delay execution before start
 
   pinMode(POWERLED, OUTPUT);                // Power indicator LED
 
@@ -242,11 +250,12 @@ void setup() {
   display.init();                           // Initialize display
   display.backlight();                      // Backlights on by default
 
-  doInitialScreen(1);
+  doInitialScreen(1);                       // Show for x seconds
 
   debugln(F("==============================="));
   debug("GAW-MR-Control v");
   debugln(progVersion);
+
   debugln(F("==============================="));
   debugln(F("Start initialization"));
   debugln(F("==============================="));
@@ -257,7 +266,6 @@ void setup() {
 
   debugln(F("==============================="));
   debugln(F("Initializing multiplexers:"));
-
 
   for (int mx=0; mx<numberOfMx; mx++) {
     debug(F(" #")); debug(mx);
@@ -273,12 +281,11 @@ void setup() {
   LocoNet.init();                           // Initialize Loconet
   debugln(F("==============================="));
 
-  debugln(F("Restore state from memory"));
+//  debugln(F("Restore state from memory"));  // uncomment in case of loss of original table
+//  storeState();                             // to reaplce it with the definitions in the code
 
-//  storeState();                             // uncomment in case of loss of original table
-
-  recallState();                            // Recall state from EEPROM
-  activateState();                           //   and make state as it was!
+  recallState();                            // By default recall state from EEPROM
+  activateState();                          //   and make state as it was!
 
   LCD_display(display, 0, 0, F("System ready        "));
 
@@ -297,8 +304,8 @@ void loop() {
 
   char key = controlPanel.getKey();
   if(key) {                                 // Check for a valid key
-    debugln("received "+String((int)key));
-    handleButtons(key);                    //   and handle key
+    debugln("Received key value "+String((int)key));
+    handleKeys(key);                        //   and handle key
   }
 
 
@@ -312,6 +319,8 @@ void loop() {
   }
 
 /*
+  // Code from example loconet sketch
+
   // button pressed
   if(digitalRead(BUTTON_PIN) == LOW && !buttonPressed) {
 
@@ -340,15 +349,15 @@ void loop() {
 
 
 /* ------------------------------------------------------------------------- *
- *       Routine to handle buttons on the control panel      handleButtons()
+ *       Routine to handle buttons on the control panel      handleKeys()
  * ------------------------------------------------------------------------- */
-void handleButtons(char key) {
+void handleKeys(char key) {
 
-  int index = key - 1;                      // Keycode to table index
+  int index = key - 1;                      // Convert keycode to table index
 
-  switch(element[index].type) {
+  switch(element[index].type) {             // What do we have?
 
-    case 0:                                 // Switch TYPE
+    case 0:                                 // SWITCH TYPE
       flipSwitch(index);
       break;
 
@@ -380,8 +389,7 @@ void handleLocomotive(int index) {
   debug("Loc # ");                                // Just display address
   debugln(element[index].address);                //   for future use
   activeLoc = element[index].address;
-
-  setLocSpeed(index);
+  setLocSpeed(index);                             //   for future use
 }
 
   
@@ -409,32 +417,39 @@ void flipSwitch(int index) {
 
 
 /* ------------------------------------------------------------------------- *
- *                                                              setSwitch()
+ *                                                               setSwitch()
  * ------------------------------------------------------------------------- */
 void setSwitch(int index) {
+
   int state = ( element[index].state == 0 ? STRAIGHT : THROWN );
 
-  int mx = (index / 16) * 2;                // Calculate mx address and port
+  int mx = (index / 16) * 2;                // Calculate mx address and port 
+                                            //  for the even numbered mux
   int port = (index % 16);                  //  from switch position in elements
 
   debug("Set Switch "+String(element[index].address)+" to "+ ( element[index].state == 0 ? "Straight" : "Thrown  ") );
   debug(" - mx "+String(mx)+","+String(port)+" = "+state);
 
-  mcps[mx].mcp.digitalWrite(port, state);
+  mcps[mx].mcp.digitalWrite(port, state);   // Set LED for THROWN on or off
 
-  mx++;
-  state = !state;
+  mx++;                                     // One up for odd number mux
+  state = !state;                           // Invert state
 
   debugln(", mx "+String(mx)+","+String(port)+" = "+state);
 
-  mcps[mx].mcp.digitalWrite(port, state);
+  mcps[mx].mcp.digitalWrite(port, state);   // Set LED for STRAIGHT on or off
 
   LCD_display(display, 0, 0, F("Switch              "));
   LCD_display(display, 0, 7, String(element[index].address));
   LCD_display(display, 0,12, element[index].state == 0 ? "Straight" : "Thrown  ");
 
-  if (mx == 3 && (port == 0 || port == 1) ) delay(5000);
 
+// ====== Point at which the problem occurs:
+//  if (mx == 3 && (port == 0 || port == 1) ) delay(5000);
+// =========================================
+
+
+// Future expansion
 // SET LOCONET COMMAND TO Z21
 //   TO SET SWITCH
 
@@ -493,6 +508,7 @@ void setPower(int state) {
   LCD_display(display, 3,10, "Power: ");
   LCD_display(display, 3,17, state ? "ON " : "OFF");
 
+// Future expansion
 // SET LOCONET COMMAND TO Z21
 //   TO SET POWER STATE
 }
@@ -501,6 +517,7 @@ void setPower(int state) {
 
 /* ------------------------------------------------------------------------- *
  *                                                            showElements()
+ * Testing purposes: show array of elements and their states
  * ------------------------------------------------------------------------- */
 void showElements() {
   debugln(F("Show elements table:"));
