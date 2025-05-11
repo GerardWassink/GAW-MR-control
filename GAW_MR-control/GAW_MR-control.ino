@@ -14,9 +14,10 @@
  *          expanded matrix to 8 x 8
  *          improved initialization
  *          Multiplexers inbouwen voor LEDS
+ *   0.6    Fighting with the multiplexer code
  *
  *------------------------------------------------------------------------- */
-#define progVersion "0.5"  // Program version definition
+#define progVersion "0.6"                   // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
@@ -85,6 +86,8 @@
 #define entrySize sizeof(MR_data)
 #define nElements sizeof(element) / entrySize
 
+#define numberOfMx sizeof(mcps) / sizeof(MCPINFO)
+
 #define memSize EEPROM.length()             // Amount of EEPROM memory
 
 #define POWERLED 53                         // Panel Power indicator
@@ -112,6 +115,11 @@ struct MR_data{
 struct MR_data element[] = {
 
 // Types: 0 = Switch, 1 = Locomotive, 99 = power
+
+// ===== CAVEAT =====
+// Switches MUST come first, calculations for the LED multiplexers are based
+// on the index of the switches in the element array
+// ===== CAVEAT =====
 
 //              Module 1
    0, 1, 101, STRAIGHT,
@@ -152,7 +160,7 @@ struct MR_data element[] = {
    0, 8, 804, STRAIGHT,
    0, 8, 805, STRAIGHT,
 
-//              Locomotives
+//              My locomotives
    1, 0, 344, 0,                            // Hondekop
    1, 0, 386, 0,                            // BR 201 386
    1, 0, 611, 0,                            // NS 611
@@ -210,10 +218,14 @@ struct MCPINFO {
 };
 
 MCPINFO mcps[] {
-  {Adafruit_MCP23X17(), 0x20},
-  {Adafruit_MCP23X17(), 0x21},
-  {Adafruit_MCP23X17(), 0x22},
-  {Adafruit_MCP23X17(), 0x23},
+  {Adafruit_MCP23X17(), 0x20},              // multiplexer 1
+  {Adafruit_MCP23X17(), 0x21},              // multiplexer 2
+  {Adafruit_MCP23X17(), 0x22},              // multiplexer 3
+  {Adafruit_MCP23X17(), 0x23},              // multiplexer 4
+//  {Adafruit_MCP23X17(), 0x24},              // multiplexer 5
+//  {Adafruit_MCP23X17(), 0x25},              // multiplexer 6
+//  {Adafruit_MCP23X17(), 0x26},              // multiplexer 7
+//  {Adafruit_MCP23X17(), 0x27},              // multiplexer 8
 };
 
 /* ------------------------------------------------------------------------- *
@@ -225,19 +237,16 @@ void setup() {
 
   pinMode(POWERLED, OUTPUT);                // Power indicator LED
 
+  debugstart(115200);                       // Start serial
+
   display.init();                           // Initialize display
   display.backlight();                      // Backlights on by default
 
-  doInitialScreen(3);                       // Show when no debugging
-
-  debugstart(115200);                       // Start serial
+  doInitialScreen(1);
 
   debugln(F("==============================="));
   debug("GAW-MR-Control v");
   debugln(progVersion);
-  debugln(F("==============================="));
-
-  debugln("");
   debugln(F("==============================="));
   debugln(F("Start initialization"));
   debugln(F("==============================="));
@@ -246,36 +255,30 @@ void setup() {
   debug("tableSize = "); debugln(sizeof(element));
   debug("nElements = "); debugln(nElements);
 
-  debugln(F("Initializing: "));
-  for (int i=0; i<4; i++) {
-    debug(F("- multiplexer #"));
-    debugln(i);
-    mcps[i].mcp.begin_I2C();
+  debugln(F("==============================="));
+  debugln(F("Initializing multiplexers:"));
+
+
+  for (int mx=0; mx<numberOfMx; mx++) {
+    debug(F(" #")); debug(mx);
+    mcps[mx].mcp.begin_I2C(mcps[mx].address);
     for (int j = 0; j < 16; j++) {
-      mcps[i].mcp.pinMode(j, OUTPUT);
+      mcps[mx].mcp.pinMode(j, OUTPUT);
     }
   }
-  debugln(F("Multiplexers initialized"));
+  debugln(); 
 
-  for (int i = 0; i < 16; i++) {
-    mcps[1].mcp.digitalWrite(i, LOW);
-    mcps[2].mcp.digitalWrite(i, LOW);
-  }
-  debugln(F("Multiplexers ready"));
-
-  mcps[1].mcp.digitalWrite(8, HIGH);
-  mcps[2].mcp.digitalWrite(8, HIGH);
-
+  debugln(F("==============================="));
   debugln(F("Initialize LocoNet"));
   LocoNet.init();                           // Initialize Loconet
+  debugln(F("==============================="));
 
   debugln(F("Restore state from memory"));
-  recallState();                            // Recall state from EEPROM
-  restoreState();                           //   and make state as it was!
 
-#if DEBUG_LVL > 1
-  showElements();
-#endif
+//  storeState();                             // uncomment in case of loss of original table
+
+  recallState();                            // Recall state from EEPROM
+  activateState();                           //   and make state as it was!
 
   LCD_display(display, 0, 0, F("System ready        "));
 
@@ -346,7 +349,7 @@ void handleButtons(char key) {
   switch(element[index].type) {
 
     case 0:                                 // Switch TYPE
-      handleSwitch(index);
+      flipSwitch(index);
       break;
 
     case 1:                                 // LOCOMOTIVE TYPE
@@ -384,7 +387,7 @@ void handleLocomotive(int index) {
   
 
 /* ------------------------------------------------------------------------- *
- *                                                           handleSwitch()
+ *                                                             setLocSpeed()
  * ------------------------------------------------------------------------- */
 void setLocSpeed(int index) {
   LCD_display(display, 1, 0, "Active Loc "+String(activeLoc)+"   ");
@@ -396,15 +399,10 @@ void setLocSpeed(int index) {
   
 
 /* ------------------------------------------------------------------------- *
- *                                                           handleSwitch()
+ *                                                              flipSwitch()
  * ------------------------------------------------------------------------- */
-void handleSwitch(int index) {
+void flipSwitch(int index) {
   element[index].state = !element[index].state;   // Flip state
-
-  debug("Switch # "); 
-  debug(element[index].address); debug(" - ");
-  debugln(element[index].state ? "straight" : "thrown"); 
-  
   setSwitch(index);
 }
 
@@ -414,16 +412,32 @@ void handleSwitch(int index) {
  *                                                              setSwitch()
  * ------------------------------------------------------------------------- */
 void setSwitch(int index) {
-  delay(500);
-  debug("Set Switch "+String(element[index].address)+" to ");
-  debugln(element[index].state == 0 ? F("Straight") : F("Thrown") );
+  int state = ( element[index].state == 0 ? STRAIGHT : THROWN );
+
+  int mx = (index / 16) * 2;                // Calculate mx address and port
+  int port = (index % 16);                  //  from switch position in elements
+
+  debug("Set Switch "+String(element[index].address)+" to "+ ( element[index].state == 0 ? "Straight" : "Thrown  ") );
+  debug(" - mx "+String(mx)+","+String(port)+" = "+state);
+
+  mcps[mx].mcp.digitalWrite(port, state);
+
+  mx++;
+  state = !state;
+
+  debugln(", mx "+String(mx)+","+String(port)+" = "+state);
+
+  mcps[mx].mcp.digitalWrite(port, state);
 
   LCD_display(display, 0, 0, F("Switch              "));
   LCD_display(display, 0, 7, String(element[index].address));
-  LCD_display(display, 0,12, element[index].state == 0 ? F("Straight") : F("Thrown") );
+  LCD_display(display, 0,12, element[index].state == 0 ? "Straight" : "Thrown  ");
+
+  if (mx == 3 && (port == 0 || port == 1) ) delay(5000);
 
 // SET LOCONET COMMAND TO Z21
 //   TO SET SWITCH
+
 }
 
 
@@ -453,34 +467,6 @@ void handleFunction(int index) {
 
   }
 
-}
-
-
-
-/* ------------------------------------------------------------------------- *
- *                                                             recallState()
- * ------------------------------------------------------------------------- */
-void recallState() {
-  for (int i=0; i<nElements; i++) {
-    EEPROM.get(i*entrySize, element[i]);
-  }
-  LCD_display(display, 3, 0, "Recalled");
-  delay(1000);
-  LCD_display(display, 3, 0, F("        "));
-}
-
-
-
-/* ------------------------------------------------------------------------- *
- *                                                              storeState()
- * ------------------------------------------------------------------------- */
-void storeState() {
-  for (int i=0; i<nElements; i++) {
-    EEPROM.put(i*entrySize, element[i]);
-  }
-  LCD_display(display, 3, 0, "Stored");
-  delay(1000);
-  LCD_display(display, 3, 0, F("      "));
 }
 
 
@@ -579,6 +565,60 @@ void showElements() {
 
 
 /* ------------------------------------------------------------------------- *
+ *                                                              storeState()
+ * ------------------------------------------------------------------------- */
+void storeState() {
+  for (int i=0; i<nElements; i++) {
+    EEPROM.put(i*entrySize, element[i]);
+  }
+  LCD_display(display, 3, 0, "Stored");
+  delay(1000);
+  LCD_display(display, 3, 0, F("      "));
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                             recallState()
+ * ------------------------------------------------------------------------- */
+void recallState() {
+  for (int i=0; i<nElements; i++) {
+    EEPROM.get(i*entrySize, element[i]);
+  }
+  LCD_display(display, 3, 0, "Recalled");
+  delay(1000);
+  LCD_display(display, 3, 0, F("        "));
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                           activateState()
+ * ------------------------------------------------------------------------- */
+void activateState() {
+  int pwr = 0;                              // Assume power off
+  int index = 0;
+
+  for (index = 0; index < nElements; index++) {         // FIRST: restore power state
+    if (element[index].type == 99) {            // Power state found
+        pwr = element[index].state;             // What was the state?
+        setPower(element[index].state);         // Set power on / off
+    }
+  }
+
+  if (pwr) {                                // Power on? then Switchs
+    for (index = 0; index < nElements; index++) {
+      if (element[index].type == 0) {       // Is it a turnout?
+          setSwitch(index);                 //  then set proper value
+      }
+    }
+  }
+
+}
+
+
+
+/* ------------------------------------------------------------------------- *
  *       Show initial screen, then paste template          doInitialScreen()
  * ------------------------------------------------------------------------- */
 void doInitialScreen(int s) {
@@ -593,31 +633,6 @@ void doInitialScreen(int s) {
   LCD_display(display, 0, 0, F("                    "));
   LCD_display(display, 1, 0, F("                    "));
   LCD_display(display, 2, 0, F("                    "));
-  
-}
-
-
-
-/* ------------------------------------------------------------------------- *
- *                                                              resetState()
- * ------------------------------------------------------------------------- */
-void restoreState() {
-  int pwr = 0;                              // Assume power off
-
-  for (int i=0; i<nElements; i++) {         // FIRST: restore power state
-    if (element[i].type == 99) {
-        pwr = element[i].state;
-        setPower(element[i].state);
-    }
-  }
-
-  if (pwr) {                                // Power on? then Switchs
-    for (int i=0; i<nElements; i++) {
-      if (element[i].type == 0) {
-          setSwitch(i);
-      }
-    }
-  }
 
 }
 
