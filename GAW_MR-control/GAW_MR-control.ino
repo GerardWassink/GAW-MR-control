@@ -349,13 +349,14 @@ void loop() {
 
 
 /* ------------------------------------------------------------------------- *
- *       Routine to handle buttons on the control panel      handleKeys()
+ *                                                              handleKeys()
+ *       Routine to handle buttons on the control panel
  * ------------------------------------------------------------------------- */
 void handleKeys(char key) {
 
   int index = key - 1;                      // Convert keycode to table index
 
-  switch(element[index].type) {             // What do we have?
+  switch(element[index].type) {             // Which type do we have?
 
     case 0:                                 // SWITCH TYPE
       flipSwitch(index);
