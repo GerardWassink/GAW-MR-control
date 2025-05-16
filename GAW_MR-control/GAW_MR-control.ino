@@ -17,6 +17,7 @@
  *   0.6    Fighting with the multiplexer code
  *          Added and improved comments
  *   0.7    Added test for speed-step control using variable resistor
+ *          Added some verbosity
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.7"                   // Program version definition
@@ -473,6 +474,8 @@ void handleLocomotive(int index) {
   debug("Loc # ");                                // Just display address
   debugln(element[index].address);                //   for future use
   activeLoc = element[index].address;
+  LCD_display(display, 1, 0, "Active Loc "+String(activeLoc)+"   ");
+
   setLocSpeed(index);                             //   for future use
 }
 
@@ -482,7 +485,6 @@ void handleLocomotive(int index) {
  *                                                             setLocSpeed()
  * ------------------------------------------------------------------------- */
 void setLocSpeed(int index) {
-  LCD_display(display, 1, 0, "Active Loc "+String(activeLoc)+"   ");
 
 // SET LOCONET COMMAND TO Z21
 //   TO SET SWITCH
@@ -617,6 +619,7 @@ void showElements() {
  *                                                              storeState()
  * ------------------------------------------------------------------------- */
 void storeState() {
+  debugln("Storing systemn status");
   for (int i=0; i<nElements; i++) {
     EEPROM.put(i*entrySize, element[i]);
   }
@@ -631,6 +634,7 @@ void storeState() {
  *                                                             recallState()
  * ------------------------------------------------------------------------- */
 void recallState() {
+  debugln("Recalling systemn status");
   for (int i=0; i<nElements; i++) {
     EEPROM.get(i*entrySize, element[i]);
   }
@@ -645,6 +649,7 @@ void recallState() {
  *                                                           activateState()
  * ------------------------------------------------------------------------- */
 void activateState() {
+  debugln("Activating system status to layout");
   int pwr = 0;                              // Assume power off
   int index = 0;
 
