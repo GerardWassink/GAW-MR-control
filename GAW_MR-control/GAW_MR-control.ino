@@ -18,9 +18,11 @@
  *          Added and improved comments
  *   0.7    Added test for speed-step control using variable resistor
  *          Added some verbosity
+ *   0.8    Second state added to element array
+ *          For locomotive direction and speed
  *
  *------------------------------------------------------------------------- */
-#define progVersion "0.7"                   // Program version definition
+#define progVersion "0.8"                   // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
@@ -88,6 +90,10 @@
 #define STRAIGHT 0                          // State definitions
 #define THROWN 1                            //  for Switch states
 
+#define FORWARD 1                          // State definitions
+#define STOP    0                          //   for loc
+#define REVERSE -1                         //     direction
+
 #define entrySize sizeof(MR_data)           // Dynamic definitions for
 #define nElements sizeof(element) / \
                   entrySize                 //  element size
@@ -117,6 +123,7 @@ struct MR_data{                             // single element definition
   int module;
   int address;
   int state;
+  int state2;
 };
 
 /* ------------------------------------------------------------------------- *
@@ -134,60 +141,101 @@ struct MR_data element[] = {
 // element array
 // ===== CAVEAT =====
 
+/* ------------------------------------------------------------------------- *
+ * Type = 0, Switches:
+ *   module  = layout module, administrative only for now
+ *   address = DCC address of the switch
+ *   state   = actual state of the switch
+ *   state2  = opposite state, used for 2nd LED
+ * ------------------------------------------------------------------------- */
+
 //              Layout module 1
-   0, 1, 101, STRAIGHT,
-   0, 1, 102, STRAIGHT,
-   0, 1, 103, STRAIGHT,
-   0, 1, 104, STRAIGHT,
+   0, 1, 101, STRAIGHT, THROWN,
+   0, 1, 102, STRAIGHT, THROWN,
+   0, 1, 103, STRAIGHT, THROWN,
+   0, 1, 104, STRAIGHT, THROWN,
 
 //              Layout module 2
-   0, 2, 201, STRAIGHT,
-   0, 2, 202, STRAIGHT,
-   0, 2, 203, STRAIGHT,
+   0, 2, 201, STRAIGHT, THROWN,
+   0, 2, 202, STRAIGHT, THROWN,
+   0, 2, 203, STRAIGHT, THROWN,
 
 //              Layout module 4
-   0, 4, 401, STRAIGHT,
-   0, 4, 402, STRAIGHT,
-   0, 4, 403, STRAIGHT,
-   0, 4, 404, STRAIGHT,
-   0, 4, 405, STRAIGHT,
-   0, 4, 406, STRAIGHT,
-   0, 4, 407, STRAIGHT,
+   0, 4, 401, STRAIGHT, THROWN,
+   0, 4, 402, STRAIGHT, THROWN,
+   0, 4, 403, STRAIGHT, THROWN,
+   0, 4, 404, STRAIGHT, THROWN,
+   0, 4, 405, STRAIGHT, THROWN,
+   0, 4, 406, STRAIGHT, THROWN,
+   0, 4, 407, STRAIGHT, THROWN,
 
 //              MLayout mdule 5
-   0, 5, 501, STRAIGHT,
-   0, 5, 502, STRAIGHT,
+   0, 5, 501, STRAIGHT, THROWN,
+   0, 5, 502, STRAIGHT, THROWN,
 
 //              Layout module 6
-   0, 6, 601, STRAIGHT,
-   0, 6, 602, STRAIGHT,
-   0, 6, 603, STRAIGHT,
+   0, 6, 601, STRAIGHT, THROWN,
+   0, 6, 602, STRAIGHT, THROWN,
+   0, 6, 603, STRAIGHT, THROWN,
 
 //              Layout module 7
-   0, 7, 701, STRAIGHT,
+   0, 7, 701, STRAIGHT, THROWN,
 
 //              Layout module 8
-   0, 8, 801, STRAIGHT,
-   0, 8, 802, STRAIGHT,
-   0, 8, 803, STRAIGHT,
-   0, 8, 804, STRAIGHT,
-   0, 8, 805, STRAIGHT,
+   0, 8, 801, STRAIGHT, THROWN,
+   0, 8, 802, STRAIGHT, THROWN,
+   0, 8, 803, STRAIGHT, THROWN,
+   0, 8, 804, STRAIGHT, THROWN,
+   0, 8, 805, STRAIGHT, THROWN,
+
+/* ------------------------------------------------------------------------- *
+ * Type = 1, Locomotives:
+ *   module  = arbitrary, not used
+ *   address = DCC address of the locomotive
+ *   state   = -1 = reverse, 0 = stopped, 1 = forward
+ *   state2  = speed step
+ * ------------------------------------------------------------------------- */
 
 //              My locomotives
-   1, 0, 344, 0,                            // Hondekop
-   1, 0, 386, 0,                            // BR 201 386
-   1, 0, 611, 0,                            // NS 611
-   1, 0, 612, 0,                            // NS 612
-   1, 0,2412, 0,                            // NS 2412
+   1, 0, 344, 0, 0,                         // Hondekop
+   1, 0, 386, 0, 0,                         // BR 201 386
+   1, 0, 611, 0, 0,                         // NS 611
+   1, 0, 612, 0, 0,                         // NS 612
+   1, 0,2412, 0, 0,                         // NS 2412
 
-//              Functions
-  90, 0,9001, 0,                            // Store state
-  90, 0,9002, 0,                            // Recall state
-  90, 0,9003, 0,                            // Test display states
+/* ------------------------------------------------------------------------- *
+ * Type = 90, Funtions:
+ *   module  = arbitrary, not used
+ *   address = Function number
+ *   state   = not used
+ *   state2  = not used
+ * ------------------------------------------------------------------------- */
 
+//              General Functions
+  90, 0,9001, 0, 0,                         // Store state
+  90, 0,9002, 0, 0,                         // Recall state
+  90, 0,9003, 0, 0,                         // Test display states
+
+//              Loc Functions
+  90, 0,9101, 0, 0,                          // Forward
+  90, 0,9102, 0, 0,                          // Stop
+  90, 0,9103, 0, 0,                          // Reverse
+  90, 0,9104, 0, 0,                          // Lights
+  90, 0,9105, 0, 0,                          // Sound
+  90, 0,9106, 0, 0,                          // Whistle
+  90, 0,9107, 0, 0,                          // Horn
+  90, 0,9108, 0, 0,                          // Two-tone Horn
+
+/* ------------------------------------------------------------------------- *
+ * Type = 99, Power:
+ *   module  = arbitrary, not used
+ *   address = Function number
+ *   state   = power = 1 (on) / 0 (off)
+ *   state2  = not used
+ * ------------------------------------------------------------------------- */
 
 //              POWER
-  99, 0,9999, POWEROFF,                     // Roco Z21
+  99, 0,9999, POWEROFF, 0,                  // Roco Z21
 };
 
 
@@ -292,7 +340,6 @@ void setup() {
   LocoNet.init();                           // Initialize Loconet
   debugln(F("==============================="));
 
-//  debugln(F("Restore state from memory"));  // uncomment in case of loss of original table
 //  storeState();                             // to reaplce it with the definitions in the code
 
   recallState();                            // By default recall state from EEPROM
@@ -423,7 +470,8 @@ void handleKeys(char key) {
  *                                                              flipSwitch()
  * ------------------------------------------------------------------------- */
 void flipSwitch(int index) {
-  element[index].state = !element[index].state;   // Flip state
+  element[index].state  = !element[index].state;   // Flip state
+  element[index].state2 = !element[index].state;   // Flip state2
   setSwitch(index);
 }
 
@@ -434,7 +482,8 @@ void flipSwitch(int index) {
  * ------------------------------------------------------------------------- */
 void setSwitch(int index) {
 
-  int state = ( element[index].state == 0 ? STRAIGHT : THROWN );
+  int state  = ( element[index].state  == 0 ? STRAIGHT : THROWN );
+  int state2 = ( element[index].state2 == 0 ? STRAIGHT : THROWN );
 
                                             // Calculate mx address and port 
   int mx = (index / 16) * 2;                //  for the even numbered mux
@@ -443,20 +492,15 @@ void setSwitch(int index) {
   debug("Set Switch "+String(element[index].address)+" to "+ ( state == 0 ? "Straight" : "Thrown  ") );
   debug(" - mx "+String(mx)+","+String(port)+" = "+state);
 
-  mcps[mx].mcp.digitalWrite(port, state);   // Set LED for THROWN on or off
+  mcps[mx].mcp.digitalWrite(port, state);   // Set first LED on or off
   mx++;                                     // One up for odd number mux
-  mcps[mx].mcp.digitalWrite(port, !state);   // Set LED for STRAIGHT on or off
+  mcps[mx].mcp.digitalWrite(port, state2);  // Set second LED on or off
 
-  debugln(", mx "+String(mx)+","+String(port)+" = "+!state);
+  debugln(", mx "+String(mx)+","+String(port)+" = "+state2);
 
   LCD_display(display, 0, 0, F("Switch              "));
   LCD_display(display, 0, 7, String(element[index].address));
   LCD_display(display, 0,12, element[index].state == 0 ? "Straight" : "Thrown  ");
-
-
-// ====== Point at which the problem occurs:
-//  if (mx == 3 && (port == 0 || port == 1) ) delay(5000);
-// =========================================
 
 
 // Future expansion
@@ -472,9 +516,9 @@ void setSwitch(int index) {
  * ------------------------------------------------------------------------- */
 void handleLocomotive(int index) {
   debug("Loc # ");                                // Just display address
-  debugln(element[index].address);                //   for future use
-  activeLoc = element[index].address;
-  LCD_display(display, 1, 0, "Active Loc "+String(activeLoc)+"   ");
+  debug(element[index].address);                //   for future use
+  activeLoc = index;
+  LCD_display(display, 1, 0, "Loc "+String(element[activeLoc].address)+"            ");
 
   setLocSpeed(index);                             //   for future use
 }
@@ -485,6 +529,12 @@ void handleLocomotive(int index) {
  *                                                             setLocSpeed()
  * ------------------------------------------------------------------------- */
 void setLocSpeed(int index) {
+  int direction = element[activeLoc].state;
+  int speedstep = element[activeLoc].state2;
+
+  debug(" set to " + direction == FORWARD ? " forward" : " reverse" );
+  debug(", speed: " + String(speedstep) );
+  debugln();
 
 // SET LOCONET COMMAND TO Z21
 //   TO SET SWITCH
@@ -512,11 +562,71 @@ void handleFunction(int index) {
       showElements();
       break;
 
+    case 9101:                              // Loc Forward
+      locForward();
+      break;
+
+    case 9102:                              // Loc Forward
+      locStop();
+      break;
+
+    case 9103:                              // Loc Forward
+      locReverse();
+      break;
+
     default:
       break;
 
   }
 
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                              locForward()
+ * ------------------------------------------------------------------------- */
+void locForward() {
+  if (activeLoc > 0) {
+    element[activeLoc].state = FORWARD;
+    debugln("Loc #"+String(element[activeLoc].address)+" set to forward");
+    LCD_display(display, 1, 10, "forward   ");
+  } else {
+    LCD_display(display, 1, 0, F("NO ACTIVE LOC!      "));
+    debugln(F("NO ACTIVE LOC!"));
+  }
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                              locForward()
+ * ------------------------------------------------------------------------- */
+void locStop() {
+  if (activeLoc > 0) {
+    element[activeLoc].state = STOP;
+    debugln("Loc #"+String(element[activeLoc].address)+" set to stop");
+    LCD_display(display, 1, 10, "stop      ");
+  } else {
+    LCD_display(display, 1, 0, F("NO ACTIVE LOC!      "));
+    debugln("NO ACTIVE LOC!");
+  }
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                              locForward()
+ * ------------------------------------------------------------------------- */
+void locReverse() {
+  if (activeLoc > 0) {
+    element[activeLoc].state = REVERSE;
+    debugln("Loc #"+String(element[activeLoc].address)+" set to reverse");
+    LCD_display(display, 1, 10, "reverse   ");
+  } else {
+    LCD_display(display, 1, 0, F("NO ACTIVE LOC!      "));
+    debugln("NO ACTIVE LOC!");
+  }
 }
 
 
@@ -585,21 +695,27 @@ void showElements() {
 
     switch (element[i].type) {
       case 0:
-        debug(element[i].state == 0 ? F("Straight") : F("Thrown") );
-        if (element[i].type == 0) {
-          debug(F(" - Module: "));
-          debug(element[i].module); debugln();
-        }
+        debug(element[i].state  == 0 ? F("Straight, ") : F("Thrown, " ) );
+        debug(element[i].state2 == 0 ? F("Straight") : F("Thrown" ) );
+        debug(F(" - Module: "));
+        debugln(element[i].module);
         break;
 
       case 1:
-        debug("Speed: "+String(element[i].state)); debugln();
+        if (element[i].state == -1) {
+          debug("Reverse, ");
+        } else if (element[i].state == 0) {
+          debug("Stop, ");
+        } else if (element[i].state == 1) {
+          debug("Forward, ");
+        }
+
+        debugln("Speed: "+String(element[i].state2));
+
         break;
 
       case 90:
-        if (element[i].address == 9001) debugln("Store");
-        if (element[i].address == 9002) debugln("Recall");
-        if (element[i].address == 9003) debugln("Show Elements");
+        showFunctions(i);
         break;
       
       case 99:
@@ -616,10 +732,31 @@ void showElements() {
 
 
 /* ------------------------------------------------------------------------- *
+ *                                                           showFunctions()
+ * ------------------------------------------------------------------------- */
+void showFunctions(int index) {
+  switch (element[index].address) {
+    case 9001: debugln("Store state"); break;
+    case 9002: debugln("Recall state"); break;
+    case 9003: debugln("Show Elements"); break;
+    case 9101: debugln("Loc Forward"); break;
+    case 9102: debugln("Loc Stop"); break;
+    case 9103: debugln("Loc Reverse"); break;
+    case 9104: debugln("Loc Lights"); break;
+    case 9105: debugln("Loc Sound"); break;
+    case 9106: debugln("Loc Whistle"); break;
+    case 9107: debugln("Loc Horn"); break;
+    case 9108: debugln("Loc Two-tone Horn"); break;
+    default: break;
+  }
+}
+
+
+/* ------------------------------------------------------------------------- *
  *                                                              storeState()
  * ------------------------------------------------------------------------- */
 void storeState() {
-  debugln("Storing systemn status");
+  debugln("Storing system status");
   for (int i=0; i<nElements; i++) {
     EEPROM.put(i*entrySize, element[i]);
   }
