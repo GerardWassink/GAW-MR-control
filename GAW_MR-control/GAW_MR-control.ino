@@ -18,8 +18,8 @@
  *          Added and improved comments
  *   0.7    Added test for speed-step control using variable resistor
  *          Added some verbosity
- *   0.8    Second state added to element array
- *          For locomotive direction and speed
+ *   0.8    Second state added to element array for locomotive direction and speed
+ *          Inserted 7 switch elements to make the number 32
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.8"                   // Program version definition
@@ -189,6 +189,17 @@ struct MR_data element[] = {
    0, 8, 805, STRAIGHT, THROWN,
 
 /* ------------------------------------------------------------------------- *
+ * 7 spare switch positions, for possible future expansion
+ * ------------------------------------------------------------------------- */
+   0, 0,   0, 0, 0,
+   0, 0,   0, 0, 0,
+   0, 0,   0, 0, 0,
+   0, 0,   0, 0, 0,
+   0, 0,   0, 0, 0,
+   0, 0,   0, 0, 0,
+   0, 0,   0, 0, 0,
+
+/* ------------------------------------------------------------------------- *
  * Type = 1, Locomotives:
  *   module  = arbitrary, not used
  *   address = DCC address of the locomotive
@@ -197,11 +208,11 @@ struct MR_data element[] = {
  * ------------------------------------------------------------------------- */
 
 //              My locomotives
-   1, 0, 344, 0, 0,                         // Hondekop
-   1, 0, 386, 0, 0,                         // BR 201 386
-   1, 0, 611, 0, 0,                         // NS 611
-   1, 0, 612, 0, 0,                         // NS 612
-   1, 0,2412, 0, 0,                         // NS 2412
+   1, 0, 344, 1, 0,                         // Hondekop
+   1, 0, 386, 1, 0,                         // BR 201 386
+   1, 0, 611, 1, 0,                         // NS 611
+   1, 0, 612, 1, 0,                         // NS 612
+   1, 0,2412, 1, 0,                         // NS 2412
 
 /* ------------------------------------------------------------------------- *
  * Type = 90, Funtions:
@@ -214,7 +225,7 @@ struct MR_data element[] = {
 //              General Functions
   90, 0,9001, 0, 0,                         // Store state
   90, 0,9002, 0, 0,                         // Recall state
-  90, 0,9003, 0, 0,                         // Test display states
+  90, 0,9003, 0, 0,                         // Show elements
 
 //              Loc Functions
   90, 0,9101, 0, 0,                          // Forward
@@ -236,6 +247,7 @@ struct MR_data element[] = {
 
 //              POWER
   99, 0,9999, POWEROFF, 0,                  // Roco Z21
+
 };
 
 
@@ -274,10 +286,19 @@ LiquidCrystal_I2C display(0x26,20,4);       // Initialize display
 /* ------------------------------------------------------------------------- *
  *              Create objects with addres(ses) for the multiplexer MCP23017
  *
- * MCP23017's are used in pairs for operating the LED's indicating the 
- * switch positions. The first ones (even address) for the THROWN position
- * LED's, the second ones (odd address) for the STRAIGHT position LED's.
- * One pair of MCP23017's serves 16 switches.
+ * For the Switches, MCP23017's are used in pairs for operating the LED's 
+ * indicating the switch positions. The first ones (even address) for the
+ * THROWN position LED's, the second ones (odd address) for the STRAIGHT
+ * position LED's. One pair of MCP23017's serves 16 switches.
+ *
+ * On my layout there are 25 switches. The first four MCP23017's will be
+ * used to operate their LED's, so there will be room for expansion op to
+ * 32 switches.
+ *
+ * For the more simple on/off scenario's, as in the main Power LED, the
+ * selection of loc's and functions, individual ports of the MCP23017's 
+ * are used.
+ *
  * The multiplexer MCP23017's are addressed from 0x20 to max 0x27.
  * Their definitions are stored in the mcps[] array, see below.
  * ------------------------------------------------------------------------- */
@@ -291,10 +312,10 @@ MCPINFO mcps[] {
   {Adafruit_MCP23X17(), 0x21},              // multiplexer 1
   {Adafruit_MCP23X17(), 0x22},              // multiplexer 2
   {Adafruit_MCP23X17(), 0x23},              // multiplexer 3
-//  {Adafruit_MCP23X17(), 0x24},              // multiplexer 4
-//  {Adafruit_MCP23X17(), 0x25},              // multiplexer 5
-//  {Adafruit_MCP23X17(), 0x26},              // multiplexer 6
-//  {Adafruit_MCP23X17(), 0x27},              // multiplexer 7
+  {Adafruit_MCP23X17(), 0x24},              // multiplexer 4
+  {Adafruit_MCP23X17(), 0x25},              // multiplexer 5
+  {Adafruit_MCP23X17(), 0x26},              // multiplexer 6
+  {Adafruit_MCP23X17(), 0x27},              // multiplexer 7
 };
 
 /* ------------------------------------------------------------------------- *
@@ -342,11 +363,12 @@ void setup() {
 
 //  storeState();                             // to reaplce it with the definitions in the code
 
+  LCD_display(display, 1, 0, F("                    "));
   recallState();                            // By default recall state from EEPROM
   activateState();                          //   and make state as it was!
 
   LCD_display(display, 0, 0, F("System ready        "));
-
+  
   debugln(F("==============================="));
   debugln(F("Setup done, ready for operations"));
   debugln(F("==============================="));
@@ -558,9 +580,11 @@ void handleFunction(int index) {
       recallState();
       break;
 
+#if DEBUG > 0
     case 9003:                              // Show elements
       showElements();
       break;
+#endif
 
     case 9101:                              // Loc Forward
       locForward();
@@ -658,7 +682,7 @@ void setPower(int state) {
 }
 
 
-
+#if DEBUG > 0
 /* ------------------------------------------------------------------------- *
  *                                                            showElements()
  * Testing purposes: show array of elements and their states
@@ -690,7 +714,7 @@ void showElements() {
         break;
     }
     
-    debug(element[i].address);
+    debug(String(element[i].address));
     debug(F(" - "));
 
     switch (element[i].type) {
@@ -728,6 +752,7 @@ void showElements() {
     }
   }
 }
+#endif
 
 
 
