@@ -580,7 +580,7 @@ void handleFunction(int index) {
       recallState();
       break;
 
-#if DEBUG > 0
+#if DEBUG_LVL > 0
     case 9003:                              // Show elements
       showElements();
       break;
@@ -682,11 +682,11 @@ void setPower(int state) {
 }
 
 
-#if DEBUG > 0
 /* ------------------------------------------------------------------------- *
  *                                                            showElements()
  * Testing purposes: show array of elements and their states
  * ------------------------------------------------------------------------- */
+#if DEBUG_LVL > 0
 void showElements() {
   debugln(F("Show elements table:"));
   for (int i=0; i<nElements; i++) {
@@ -753,7 +753,6 @@ void showElements() {
   }
 }
 #endif
-
 
 
 /* ------------------------------------------------------------------------- *
