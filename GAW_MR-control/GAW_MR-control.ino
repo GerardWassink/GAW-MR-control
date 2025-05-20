@@ -280,7 +280,7 @@ Keypad controlPanel = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 /* ------------------------------------------------------------------------- *
  *       Create objects with addres for the LCD screen
  * ------------------------------------------------------------------------- */
-LiquidCrystal_I2C display(0x26,20,4);       // Initialize display
+LiquidCrystal_I2C display(0x27,20,4);       // Initialize display
 
 
 /* ------------------------------------------------------------------------- *
@@ -315,7 +315,7 @@ MCPINFO mcps[] {
   {Adafruit_MCP23X17(), 0x24},              // multiplexer 4
   {Adafruit_MCP23X17(), 0x25},              // multiplexer 5
   {Adafruit_MCP23X17(), 0x26},              // multiplexer 6
-  {Adafruit_MCP23X17(), 0x27},              // multiplexer 7
+//  {Adafruit_MCP23X17(), 0x27},              // multiplexer 7 (is also the address of the LCD display)
 };
 
 /* ------------------------------------------------------------------------- *
