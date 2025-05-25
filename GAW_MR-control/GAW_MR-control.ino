@@ -28,9 +28,10 @@
  *   0.9    Built in first Loconet command for Switches
  *   0.10   Code upgrade, isolated stuff into header files
  *          Small improverments
+ *   0.11   New  defines instead of numbers
  *
  *------------------------------------------------------------------------- */
-#define progVersion "0.10"                  // Program version definition
+#define progVersion "0.11"                  // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
@@ -122,13 +123,14 @@ void setup() {
   debugln(F("==============================="));
 
 //  storeState();                             // to reaplce it with the definitions in the code
+//  exit(0);
 
   LCD_display(display, 1, 0, F("                    "));
   recallState();                            // By default recall state from EEPROM
   activateState();                          //   and make state as it was!
 
   LCD_display(display, 0, 0, F("System ready        "));
-  
+
   debugln(F("==============================="));
   debugln(F("Setup done, ready for operations"));
   debugln(F("==============================="));
@@ -191,19 +193,19 @@ void handleKeys(char key) {
 
   switch(element[index].type) {             // Which type do we have?
 
-    case 0:                                 // SWITCH TYPE
+    case TYPE_SWITCH:                       // SWITCH TYPE
       flipSwitch(index);
       break;
 
-    case 1:                                 // LOCOMOTIVE TYPE
+    case TYPE_LOCO:                         // LOCOMOTIVE TYPE
       handleLocomotive(index);
       break;
 
-    case 90:                                // FUNCTION TYPE
+    case TYPE_FUNCTION:                     // FUNCTION TYPE
       handleFunction(index);
       break;
  
-    case 99:                                // POWER TYPE
+    case TYPE_POWER:                        // POWER TYPE
       handlePower(index);
       break;
 
@@ -220,7 +222,6 @@ void handleKeys(char key) {
  *                                                              flipSwitch()
  * ------------------------------------------------------------------------- */
 void flipSwitch(int index) {
-//  element[index].state == !element[index].state;  // Flip state
 
   element[index].state == STRAIGHT ? \
     element[index].state = THROWN : \
@@ -235,6 +236,10 @@ void flipSwitch(int index) {
  *                                                               setSwitch()
  * ------------------------------------------------------------------------- */
 void setSwitch(int index) {
+
+#if DEBUG_LVL > 0
+    debugln("Set Switch " + String(element[index].address) + " to " + ( element[index].state == STRAIGHT ? "straight" : "thrown" ) );
+#endif 
 
 // SET LOCONET COMMAND TO Z21
 //   TO SET SWITCH
@@ -256,28 +261,35 @@ void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
       break;
     }
   }
-  if (index >= nElements) {
+  if (element[index].type == TYPE_SWITCH && index <= nElements) {
+                                              // Calculate mx address and port 
+    int mx = (index / 16) * 2;                //  for the even numbered mux
+    int port = (index % 16);                  //  from switch position in elements
+
+#if DEBUG_LVL > 1
+    debug("Set Switch "+String(element[index].address)+" to "+ ( state == STRAIGHT ? "Thrown  " : "Straight") );
+    debug(" - mx "+String(mx)+","+String(port)+" = "+state);
+#endif
+
+    mcps[mx].mcp.digitalWrite(port, state);   // Set first LED on or off
+    mx++;                                     // One up for odd number mux
+    mcps[mx].mcp.digitalWrite(port, !state);  // Set second LED on or off
+
+#if DEBUG_LVL > 1
+    debug(", mx "+String(mx)+","+String(port)+" = "+!state);
+    debug(" - ");
+    debugln(Output ? "On" : "Off");
+#endif
+
+    LCD_display(display, 0, 0, F("Switch              "));
+    LCD_display(display, 0, 7, String(Address));
+    LCD_display(display, 0,12, state == STRAIGHT ? "Thrown  " : "Straight");
+
+  } else {
+
     debugln("ERROR ERROR ERROR :: Address not found");
     exit(0);
   }
-                                            // Calculate mx address and port 
-  int mx = (index / 16) * 2;                //  for the even numbered mux
-  int port = (index % 16);                  //  from switch position in elements
-
-  debug("Set Switch "+String(element[index].address)+" to "+ ( state == STRAIGHT ? "Thrown  " : "Straight") );
-  debug(" - mx "+String(mx)+","+String(port)+" = "+state);
-
-  mcps[mx].mcp.digitalWrite(port, state);   // Set first LED on or off
-  mx++;                                     // One up for odd number mux
-  mcps[mx].mcp.digitalWrite(port, !state);  // Set second LED on or off
-
-  debug(", mx "+String(mx)+","+String(port)+" = "+!state);
-  debug(" - ");
-  debugln(Output ? "On" : "Off");
-
-  LCD_display(display, 0, 0, F("Switch              "));
-  LCD_display(display, 0, 7, String(Address));
-  LCD_display(display, 0,12, state == STRAIGHT ? "Thrown  " : "Straight");
 }
 
 
@@ -321,31 +333,37 @@ void handleFunction(int index) {
 
   switch(function) {
 
-    case 9001:                              // Save status
+    case FUNC_STORE:                        // Save status
       storeState();
       break;
   
-    case 9002:                              // Recall status
+    case FUNC_RECALL:                       // Recall status
       recallState();
       break;
 
-#if DEBUG_LVL > 0
-    case 9003:                              // Show elements
+    case FUNC_ACTIVATE:                     // Activate status
+      activateState();
+      break;
+
+    case FUNC_SHOW:                         // Show elements
       showElements();
       break;
-#endif
 
-    case 9101:                              // Loc Forward
+
+
+    case FUNC_FORWARD:                      // Loc Forward
       locForward();
       break;
 
-    case 9102:                              // Loc Forward
+    case FUNC_STOP:                         // Loc Stop
       locStop();
       break;
 
-    case 9103:                              // Loc Forward
+    case FUNC_REVERSE:                      // Loc Reverse
       locReverse();
       break;
+
+
 
     default:
       break;
@@ -436,7 +454,6 @@ void setPower(int state) {
  *                                                            showElements()
  * Testing purposes: show array of elements and their states
  * ------------------------------------------------------------------------- */
-#if DEBUG_LVL > 0
 void showElements() {
   debugln(F("Show elements table:"));
   for (int i=0; i<nElements; i++) {
@@ -444,19 +461,19 @@ void showElements() {
     debug(F(" - Type: "));
     debug(element[i].type);
     switch (element[i].type) {
-      case 0:
+      case TYPE_SWITCH:
         debug(F(" - Switch: "));
         break;
 
-      case 1:
+      case TYPE_LOCO:
         debug(F(" - Locomotive: "));
         break;
         
-      case 90:
+      case TYPE_FUNCTION:
         debug(F(" - Funtion: "));
         break;
         
-      case 99:
+      case TYPE_POWER:
         debug(F(" - Power: "));
         break;
 
@@ -468,13 +485,13 @@ void showElements() {
     debug(F(" - "));
 
     switch (element[i].type) {
-      case 0:
+      case TYPE_SWITCH:
         debug(element[i].state  == 0 ? F("Straight, ") : F("Thrown, " ) );
         debug(F(" - Module: "));
         debugln(element[i].module);
         break;
 
-      case 1:
+      case TYPE_LOCO:
         if (element[i].state == -1) {
           debug("Reverse, ");
         } else if (element[i].state == 0) {
@@ -482,16 +499,14 @@ void showElements() {
         } else if (element[i].state == 1) {
           debug("Forward, ");
         }
-
         debugln("Speed: "+String(element[i].state2));
-
         break;
 
-      case 90:
+      case TYPE_FUNCTION:
         showFunctions(i);
         break;
       
-      case 99:
+      case TYPE_POWER:
         debugln(element[i].state == 0 ? "OFF" : "ON" );
         break;
 
@@ -501,7 +516,6 @@ void showElements() {
     }
   }
 }
-#endif
 
 
 /* ------------------------------------------------------------------------- *
@@ -509,17 +523,20 @@ void showElements() {
  * ------------------------------------------------------------------------- */
 void showFunctions(int index) {
   switch (element[index].address) {
-    case 9001: debugln("Store state"); break;
-    case 9002: debugln("Recall state"); break;
-    case 9003: debugln("Show Elements"); break;
-    case 9101: debugln("Loc Forward"); break;
-    case 9102: debugln("Loc Stop"); break;
-    case 9103: debugln("Loc Reverse"); break;
-    case 9104: debugln("Loc Lights"); break;
-    case 9105: debugln("Loc Sound"); break;
-    case 9106: debugln("Loc Whistle"); break;
-    case 9107: debugln("Loc Horn"); break;
-    case 9108: debugln("Loc Two-tone Horn"); break;
+
+    case FUNC_STORE:    debugln("Store state"); break;
+    case FUNC_RECALL:   debugln("Recall state"); break;
+    case FUNC_ACTIVATE: debugln("Activate state"); break;
+    case FUNC_SHOW:     debugln("Show Elements"); break;
+
+    case FUNC_FORWARD:  debugln("Loc Forward"); break;
+    case FUNC_STOP:     debugln("Loc Stop"); break;
+    case FUNC_REVERSE:  debugln("Loc Reverse"); break;
+    case FUNC_LIGHTS:   debugln("Loc Lights"); break;
+    case FUNC_SOUND:    debugln("Loc Sound"); break;
+    case FUNC_WHISTLE:  debugln("Loc Whistle"); break;
+    case FUNC_HORN:     debugln("Loc Horn"); break;
+    case FUNC_TWOTONE:  debugln("Loc Two-tone Horn"); break;
     default: break;
   }
 }
@@ -544,13 +561,18 @@ void storeState() {
  *                                                             recallState()
  * ------------------------------------------------------------------------- */
 void recallState() {
-  debugln("Recalling systemn status");
+  debugln("Recalling system status");
   for (int i=0; i<nElements; i++) {
     EEPROM.get(i*entrySize, element[i]);
   }
   LCD_display(display, 3, 0, "Recalled");
   delay(1000);
   LCD_display(display, 3, 0, F("        "));
+
+#if DEBUG_LVL > 1
+  showElements();
+#endif
+
 }
 
 
@@ -565,23 +587,24 @@ void activateState() {
   int pwr = 0;                              // Assume power off
   int index = 0;
 
-  for (index = 0; index < nElements; index++) {         // FIRST: restore power state
-    if (element[index].type == 99) {            // Power state found
-        pwr = element[index].state;             // What was the state?
-        setPower(element[index].state);         // Set power on / off
+  for (index = 0; index < nElements; index++) {  // FIRST: restore power state
+    if (element[index].type == 99) {        // Power state found
+        pwr = element[index].state;         // What was the state?
+        setPower(element[index].state);     // Set power on / off
     }
   }
 
-  if (pwr) {                                // Power on? then Switchs
+  if (pwr) {                                // Power on? then Switches
     for (index = 0; index < nElements; index++) {
-      if (element[index].type == 0) {       // Is it a turnout?
-          LCD_display(display, 0, 17, String(index));
-          setSwitch(index);                 //  then set proper value
-          delay(1000);
+                                            // Is it a switch?
+                                            //  & address > zero?
+      if (element[index].type == TYPE_SWITCH && element[index].address > 0 ) {
+        LCD_display(display, 0, 17, String(index+1));
+        setSwitch(index);                   //  then set proper value
+        delay(1000);
       }
     }
   }
-
 }
 
 

@@ -123,9 +123,10 @@ struct MR_data element[] = {
  * ------------------------------------------------------------------------- */
 
 //              General Functions
-  TYPE_FUNCTION, NO_MODULE, FUNC_STORE,  0, 0,      // Store state
-  TYPE_FUNCTION, NO_MODULE, FUNC_RECALL, 0, 0,      // Recall state
-  TYPE_FUNCTION, NO_MODULE, FUNC_SHOW,   0, 0,      // Show elements
+  TYPE_FUNCTION, NO_MODULE, FUNC_STORE,    0, 0,    // Store state
+  TYPE_FUNCTION, NO_MODULE, FUNC_RECALL,   0, 0,    // Recall state
+  TYPE_FUNCTION, NO_MODULE, FUNC_ACTIVATE, 0, 0,    // Activate state
+  TYPE_FUNCTION, NO_MODULE, FUNC_SHOW,     0, 0,    // Show elements
 
 //              Loc Functions
   TYPE_FUNCTION, NO_MODULE, FUNC_FORWARD, 0, 0,

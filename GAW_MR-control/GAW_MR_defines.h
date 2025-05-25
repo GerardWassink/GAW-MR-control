@@ -32,7 +32,8 @@
 
 #define FUNC_STORE     9001                 // Functions
 #define FUNC_RECALL    9002                 //  for handling 
-#define FUNC_SHOW      9003                 //   state of the layout
+#define FUNC_ACTIVATE  9003                 //   state of
+#define FUNC_SHOW      9004                 //    the layout
 
 #define FUNC_FORWARD   9101                 // Functions
 #define FUNC_STOP      9102                 //  for handling
