@@ -3,7 +3,12 @@
  * Author : Gerard Wassink
  * Date   : May 2025
  * Purpose: Control model railway through switch panel via a Loconet connection
- * Made use of: https://www.tindie.com/products/tanner87661/loconet-interface-breakout-board-with-grove-port/
+ * Contributions by:
+ *  @tanner87661
+ *            https://www.tindie.com/products/tanner87661/loconet-interface-breakout-board-with-grove-port/
+ *  @dylanmyer
+ *            suggestion for splitting up code in .h files, 
+ *            and making statis definitions
  * Versions:
  *   0.1  : Initial code base
  *   0.2  : Added 20x4 LCD display
@@ -22,7 +27,7 @@
  *          Inserted 7 switch elements to make the number 32
  *   0.9    Built in first Loconet command for Switches
  *   0.10   Code upgrade, isolated stuff into header files
- *             hat-tip at Dylan Myers for this suggestion
+ *          Small improverments
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.10"                  // Program version definition
@@ -61,10 +66,10 @@
  *                                                   Include private headers
  * ------------------------------------------------------------------------- */
 #include "GAW_debugging.h"                  // Debugging level code
-#include "GAW_MR_defines.h"                    // various definitions
-#include "GAW_MR_layout.h"                     // Define the layout
-#include "GAW_MR_multiplexer.h"                // MCP23017 boards definitions
-#include "GAW_MR_controlpanel.h"               // Controlpanel definitions
+#include "GAW_MR_defines.h"                 // various definitions
+#include "GAW_MR_layout.h"                  // Define the layout
+#include "GAW_MR_multiplexer.h"             // MCP23017 boards definitions
+#include "GAW_MR_controlpanel.h"            // Controlpanel definitions
 
 /* ------------------------------------------------------------------------- *
  *                                       Global variables needed for Loconet
@@ -215,7 +220,12 @@ void handleKeys(char key) {
  *                                                              flipSwitch()
  * ------------------------------------------------------------------------- */
 void flipSwitch(int index) {
-  element[index].state == !element[index].state;  // Flip state
+//  element[index].state == !element[index].state;  // Flip state
+
+  element[index].state == STRAIGHT ? \
+    element[index].state = THROWN : \
+    element[index].state = STRAIGHT;
+
   setSwitch(index);
 }
 
