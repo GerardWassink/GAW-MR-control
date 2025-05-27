@@ -18,11 +18,11 @@
  * The MR_date structure defines the variables per element.
  * ------------------------------------------------------------------------- */
 struct MR_data{                             // single element definition
-  int type;
-  int module;
-  int address;
-  int state;
-  int state2;
+  int           type;
+  int           module;
+  uint16_t      address;
+  byte          state;
+  int           state2;
 };
 
 
@@ -50,43 +50,43 @@ struct MR_data element[] = {
  * ------------------------------------------------------------------------- */
 
 //              Layout module 1
-   TYPE_SWITCH, MODULE_NWW, 101, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_NWW, 102, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_NWW, 103, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_NWW, 104, STRAIGHT, THROWN,
+   TYPE_SWITCH, MODULE_NWW, 101, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_NWW, 102, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_NWW, 103, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_NWW, 104, STRAIGHT, 0,
 
 //              Layout module 2
-   TYPE_SWITCH, MODULE_NW,  201, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_NW,  202, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_NW,  203, STRAIGHT, THROWN,
+   TYPE_SWITCH, MODULE_NW,  201, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_NW,  202, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_NW,  203, STRAIGHT, 0,
 
 //              Layout module 4
-   TYPE_SWITCH, MODULE_NEE, 401, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_NEE, 402, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_NEE, 403, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_NEE, 404, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_NEE, 405, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_NEE, 406, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_NEE, 407, STRAIGHT, THROWN,
+   TYPE_SWITCH, MODULE_NEE, 401, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_NEE, 402, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_NEE, 403, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_NEE, 404, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_NEE, 405, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_NEE, 406, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_NEE, 407, STRAIGHT, 0,
 
 //              MLayout mdule 5
-   TYPE_SWITCH, MODULE_SWW, 501, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_SWW, 502, STRAIGHT, THROWN,
+   TYPE_SWITCH, MODULE_SWW, 501, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_SWW, 502, STRAIGHT, 0,
 
 //              Layout module 6
-   TYPE_SWITCH, MODULE_SW,  601, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_SW,  602, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_SW,  603, STRAIGHT, THROWN,
+   TYPE_SWITCH, MODULE_SW,  601, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_SW,  602, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_SW,  603, STRAIGHT, 0,
 
 //              Layout module 7
-   TYPE_SWITCH, MODULE_SE,  701, STRAIGHT, THROWN,
+   TYPE_SWITCH, MODULE_SE,  701, STRAIGHT, 0,
 
 //              Layout module 8
-   TYPE_SWITCH, MODULE_SEE, 801, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_SEE, 802, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_SEE, 803, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_SEE, 804, STRAIGHT, THROWN,
-   TYPE_SWITCH, MODULE_SEE, 805, STRAIGHT, THROWN,
+   TYPE_SWITCH, MODULE_SEE, 801, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_SEE, 802, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_SEE, 803, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_SEE, 804, STRAIGHT, 0,
+   TYPE_SWITCH, MODULE_SEE, 805, STRAIGHT, 0,
 
 /* ------------------------------------------------------------------------- *
  * 7 spare switch positions, for possible future expansion
@@ -147,7 +147,7 @@ struct MR_data element[] = {
  * ------------------------------------------------------------------------- */
 
 //              POWER
-  TYPE_POWER,    NO_MODULE, FUNC_POWER, POWEROFF, 0,
+  TYPE_POWER,    NO_MODULE, FUNC_POWER, POWERON, 0,
 
 };                                          // END OF element[] ARRAY
 

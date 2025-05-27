@@ -28,10 +28,11 @@
  *   0.9    Built in first Loconet command for Switches
  *   0.10   Code upgrade, isolated stuff into header files
  *          Small improverments
- *   0.11   New  defines instead of numbers
+ *   0.11   New defines instead of numbers
+ *   0.12   Improved activation at startup
  *
  *------------------------------------------------------------------------- */
-#define progVersion "0.11"                  // Program version definition
+#define progVersion "0.12"                  // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
@@ -122,11 +123,12 @@ void setup() {
   LocoNet.init(LN_TX_PIN);                  // Initialize Loconet
   debugln(F("==============================="));
 
-//  storeState();                             // to reaplce it with the definitions in the code
+//  storeState();                             // to repalce it with the definitions in the code
 //  exit(0);
 
   LCD_display(display, 1, 0, F("                    "));
   recallState();                            // By default recall state from EEPROM
+
   activateState();                          //   and make state as it was!
 
   LCD_display(display, 0, 0, F("System ready        "));
@@ -179,6 +181,8 @@ void loop() {
     handleKeys(key);                        //   and handle key
   }
 
+//  showElements(); delay(10000); exit(0);
+
 }
 
 
@@ -222,10 +226,13 @@ void handleKeys(char key) {
  *                                                              flipSwitch()
  * ------------------------------------------------------------------------- */
 void flipSwitch(int index) {
+#if DEBUG_LVL > 2
+  debugln("--- flipSwitch");
+#endif
 
   element[index].state == STRAIGHT ? \
-    element[index].state = THROWN : \
-    element[index].state = STRAIGHT;
+    element[index].state = STRAIGHT : \
+    element[index].state = THROWN;
 
   setSwitch(index);
 }
@@ -236,60 +243,15 @@ void flipSwitch(int index) {
  *                                                               setSwitch()
  * ------------------------------------------------------------------------- */
 void setSwitch(int index) {
-
-#if DEBUG_LVL > 0
-    debugln("Set Switch " + String(element[index].address) + " to " + ( element[index].state == STRAIGHT ? "straight" : "thrown" ) );
+#if DEBUG_LVL > 1
+    debugln("--- setSwitch " + String(element[index].address) + " to " + ( element[index].state == STRAIGHT ? "Straight" : "Thrown  " ) );
 #endif 
 
 // SET LOCONET COMMAND TO Z21
 //   TO SET SWITCH
-  setLNTurnout(element[index].address, element[index].state);  // Actually set switch
+  setLNTurnout(element[index].address, element[index].state);
+//  sendOPC_SW_REQ(element[index].address, (byte)element[index].state, 1);  // Actually set switch
 
-}
-
-
-
-/* ------------------------------------------------------------------------- *
- *                                                     notifySwitchRequest()
- * This call-back function is called from LocoNet.processSwitchSensorMessage
- * for all Switch Request messages
- * ------------------------------------------------------------------------- */
-void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
-  int index;
-  for (index = 0; index < nElements; index++) {
-    if (element[index].address == Address) {
-      break;
-    }
-  }
-  if (element[index].type == TYPE_SWITCH && index <= nElements) {
-                                              // Calculate mx address and port 
-    int mx = (index / 16) * 2;                //  for the even numbered mux
-    int port = (index % 16);                  //  from switch position in elements
-
-#if DEBUG_LVL > 1
-    debug("Set Switch "+String(element[index].address)+" to "+ ( state == STRAIGHT ? "Thrown  " : "Straight") );
-    debug(" - mx "+String(mx)+","+String(port)+" = "+state);
-#endif
-
-    mcps[mx].mcp.digitalWrite(port, state);   // Set first LED on or off
-    mx++;                                     // One up for odd number mux
-    mcps[mx].mcp.digitalWrite(port, !state);  // Set second LED on or off
-
-#if DEBUG_LVL > 1
-    debug(", mx "+String(mx)+","+String(port)+" = "+!state);
-    debug(" - ");
-    debugln(Output ? "On" : "Off");
-#endif
-
-    LCD_display(display, 0, 0, F("Switch              "));
-    LCD_display(display, 0, 7, String(Address));
-    LCD_display(display, 0,12, state == STRAIGHT ? "Thrown  " : "Straight");
-
-  } else {
-
-    debugln("ERROR ERROR ERROR :: Address not found");
-    exit(0);
-  }
 }
 
 
@@ -312,8 +274,8 @@ void handleLocomotive(int index) {
  *                                                             setLocSpeed()
  * ------------------------------------------------------------------------- */
 void setLocSpeed(int index) {
-  int direction = element[activeLoc].state;
-  int speedstep = element[activeLoc].state2;
+  byte direction = element[activeLoc].state;
+  int  speedstep = element[activeLoc].state2;
 
   debug(" set to " + direction == FORWARD ? " forward" : " reverse" );
   debug(", speed: " + String(speedstep) );
@@ -437,11 +399,11 @@ void handlePower(int index) {
  * ------------------------------------------------------------------------- */
 void setPower(int state) {
   debug("Setting Power ");
-  debugln(state == 0 ? F("OFF") : F("ON") );
+  debugln(state == POWEROFF ? F("OFF") : F("ON") );
   state ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
 
   LCD_display(display, 3,10, "Power: ");
-  LCD_display(display, 3,17, state ? "ON " : "OFF");
+  LCD_display(display, 3,17, state == POWERON ? "ON " : "OFF");
 
 // SET LOCONET COMMAND TO Z21
 //   TO SET POWER STATE
@@ -486,17 +448,18 @@ void showElements() {
 
     switch (element[i].type) {
       case TYPE_SWITCH:
-        debug(element[i].state  == 0 ? F("Straight, ") : F("Thrown, " ) );
+        debug("state="+String(element[i].state) + "=");
+        debug(element[i].state  == STRAIGHT ? F("Straight,") : F("Thrown,") );
         debug(F(" - Module: "));
         debugln(element[i].module);
         break;
 
       case TYPE_LOCO:
-        if (element[i].state == -1) {
+        if (element[i].state == 1) {
           debug("Reverse, ");
         } else if (element[i].state == 0) {
           debug("Stop, ");
-        } else if (element[i].state == 1) {
+        } else if (element[i].state == 2) {
           debug("Forward, ");
         }
         debugln("Speed: "+String(element[i].state2));
@@ -507,7 +470,7 @@ void showElements() {
         break;
       
       case TYPE_POWER:
-        debugln(element[i].state == 0 ? "OFF" : "ON" );
+        debugln(element[i].state == POWEROFF ? "OFF" : "ON" );
         break;
 
       default:
@@ -582,7 +545,7 @@ void recallState() {
  * ------------------------------------------------------------------------- */
 void activateState() {
   debugln("Activating system status to layout");
-  LCD_display(display, 0, 0, "Activating state");
+  LCD_display(display, 1, 0, "Activate state      ");
 
   int pwr = 0;                              // Assume power off
   int index = 0;
@@ -596,15 +559,27 @@ void activateState() {
 
   if (pwr) {                                // Power on? then Switches
     for (index = 0; index < nElements; index++) {
+      unsigned long prevMillis = millis();
                                             // Is it a switch?
                                             //  & address > zero?
       if (element[index].type == TYPE_SWITCH && element[index].address > 0 ) {
-        LCD_display(display, 0, 17, String(index+1));
+        LCD_display(display, 1, 15, String(element[index].address) );
         setSwitch(index);                   //  then set proper value
-        delay(1000);
+        
+        do {} while (millis() - prevMillis < 1000 );
+
+        LnPacket = LocoNet.receive();             // process incoming Loconet msgs
+        if (LnPacket) {
+          LocoNet.processSwitchSensorMessage(LnPacket);
+        }
+
       }
     }
   }
+
+  delay(1000);
+  LCD_display(display, 1, 0, "                    " );
+
 }
 
 
@@ -640,23 +615,29 @@ void LCD_display(LiquidCrystal_I2C screen, int row, int col, String text) {
 
 // Construct a Loconet packet that requests a turnout to set/change its state
 void sendOPC_SW_REQ(int address, byte dir, byte on) {
-    lnMsg SendPacket ;
+#if DEBUG_LVL > 2
+  debugln("--- sendOPC_SW_REQ");
+#endif
+  lnMsg SendPacket ;
     
-    int sw2 = 0x00;
-    if (dir == STRAIGHT) { sw2 |= B00100000; }
-    if (on) { sw2 |= B00010000; }
-    sw2 |= (address >> 7) & 0x0F;
+  int sw2 = 0x00;
+  if (dir == STRAIGHT) { sw2 |= B00100000; }
+  if (on) { sw2 |= B00010000; }
+  sw2 |= (address >> 7) & 0x0F;
     
-    SendPacket.data[ 0 ] = OPC_SW_REQ ;
-    SendPacket.data[ 1 ] = address & 0x7F ;
-    SendPacket.data[ 2 ] = sw2 ;
+  SendPacket.data[ 0 ] = OPC_SW_REQ ;
+  SendPacket.data[ 1 ] = address & 0x7F ;
+  SendPacket.data[ 2 ] = sw2 ;
     
-    LocoNet.send( &SendPacket );
+  LocoNet.send( &SendPacket );
 }
 
 // Some turnout decoders (DS54?) can use solenoids, this code emulates the digitrax 
 // throttles in toggling the "power" bit to cause a pulse
 void setLNTurnout(int address, byte dir) {
+#if DEBUG_LVL > 2
+  debugln("--- setLNTurnout");
+#endif
     sendOPC_SW_REQ(address - 1, dir, 1);
     sendOPC_SW_REQ(address - 1, dir, 0);
 }
@@ -672,4 +653,58 @@ void sendOPC_GP(byte on) {
         }
         LocoNet.send( &SendPacket ) ;
 }
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                     notifySwitchRequest()
+ * This call-back function is called from LocoNet.processSwitchSensorMessage
+ * for all Switch Request messages
+ * ------------------------------------------------------------------------- */
+void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
+
+#if DEBUG_LVL > 2
+  debugln("--- notifySwitchRequest");
+#endif
+  int index;
+  for (index = 0; index < nElements; index++) { // Look up Switch address
+    if (element[index].address == Address) {
+      break;
+    }
+  }
+
+  if (element[index].type == TYPE_SWITCH && index < nElements) {
+                                              // Calculate mx address and port 
+    int mx = (index / 16) * 2;                //  for the even numbered mux
+    int port = (index % 16);                  //  from switch position in elements
+
+    element[index].state = state;
+
+#if DEBUG_LVL > 1
+    debug("Set Switch "+String(element[index].address)+" to "+ (state == STRAIGHT ? "Straight" : "Thrown  " ) );
+    debug(" - mx "+String(mx)+","+String(port)+" = "+String(state));
+#endif
+
+    mcps[mx].mcp.digitalWrite(port, state);   // Set first LED on or off
+    mx++;                                     // One up for odd number mux
+    mcps[mx].mcp.digitalWrite(port, !state);  // Set second LED on or off
+
+#if DEBUG_LVL > 1
+    debug(", mx "+String(mx)+","+String(port)+" = "+ String(!state) );
+    debug(" - ");
+    debugln(Output ? "On" : "Off");
+#endif
+
+    LCD_display(display, 0, 0, F("Switch              "));
+    LCD_display(display, 0, 7, String(Address));
+    LCD_display(display, 0,12, state == STRAIGHT ? "Straight" : "Thrown  " );
+
+  } else {
+
+    debugln(element[index].address);
+    debugln("ERROR ERROR ERROR :: Address not found");
+
+  }
+}
+
 

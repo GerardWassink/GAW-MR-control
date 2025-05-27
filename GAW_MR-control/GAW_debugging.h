@@ -6,7 +6,8 @@
  * DEBUG_LVL:
  *   0 - no debug output
  *   1 - Elementary debug output
- *   2 - verbose debug output
+ *   2 - lvl 1 + verbose debug output
+ *   3 - lvl 2 + track routine names
  * ------------------------------------------------------------------------- */
 #define DEBUG_LVL 1
 
