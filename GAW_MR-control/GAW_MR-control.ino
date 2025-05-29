@@ -30,6 +30,7 @@
  *          Small improverments
  *   0.11   New defines instead of numbers
  *   0.12   Improved activation at startup
+ *          Shorter pause between activation of switches
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.12"                  // Program version definition
@@ -561,7 +562,7 @@ void activateState() {
         LCD_display(display, 1, 15, String(element[index].address) );
         setSwitch(index);                   //  then set proper value
         
-        do {} while (millis() - prevMillis < 1000 );
+        do {} while (millis() - prevMillis < 100 );
 
         LnPacket = LocoNet.receive();             // process incoming Loconet msgs
         if (LnPacket) {
