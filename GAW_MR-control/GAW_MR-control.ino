@@ -31,6 +31,8 @@
  *   0.11   New defines instead of numbers
  *   0.12   Improved activation at startup
  *          Shorter pause between activation of switches
+ *          Improved readability of error message
+ *          Removed initial activation of layout state
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.12"                  // Program version definition
@@ -129,8 +131,6 @@ void setup() {
 
   LCD_display(display, 1, 0, F("                    "));
   recallState();                            // By default recall state from EEPROM
-
-  activateState();                          //   and make state as it was!
 
   LCD_display(display, 0, 0, F("System ready        "));
 
@@ -697,7 +697,7 @@ void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
 
   } else {
 
-    debugln(element[index].address);
+    debug("Address " + String(element[index].address) + " --- ");
     debugln("ERROR ERROR ERROR :: Address not found");
 
   }
