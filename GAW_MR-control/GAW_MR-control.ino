@@ -8,7 +8,7 @@
  *            https://www.tindie.com/products/tanner87661/loconet-interface-breakout-board-with-grove-port/
  *  @dylanmyer
  *            suggestion for splitting up code in .h files, 
- *            and making statis definitions
+ *            and making static definitions
  * Versions:
  *   0.1  : Initial code base
  *   0.2  : Added 20x4 LCD display
@@ -123,7 +123,7 @@ void setup() {
   LocoNet.init(LN_TX_PIN);                  // Initialize Loconet
   debugln(F("==============================="));
 
-//  storeState();                             // to repalce it with the definitions in the code
+//  storeState();                             // to replace it with the definitions in the code
 //  exit(0);
 
   LCD_display(display, 1, 0, F("                    "));
@@ -171,17 +171,15 @@ void setup() {
  * ------------------------------------------------------------------------- */
 void loop() {
 
-  LnPacket = LocoNet.receive();             // process incoming Loconet msgs
+  LnPacket = LocoNet.receive();             // Process incoming Loconet msgs
   if (LnPacket) {
     LocoNet.processSwitchSensorMessage(LnPacket);
   }
 
-  char key = controlPanel.getKey();         // process keypress
+  char key = controlPanel.getKey();         // Process keypress
   if(key) {                                 // Check for a valid key
     handleKeys(key);                        //   and handle key
   }
-
-//  showElements(); delay(10000); exit(0);
 
 }
 
@@ -247,10 +245,8 @@ void setSwitch(int index) {
     debugln("--- setSwitch " + String(element[index].address) + " to " + ( element[index].state == STRAIGHT ? "Straight" : "Thrown  " ) );
 #endif 
 
-// SET LOCONET COMMAND TO Z21
-//   TO SET SWITCH
+/* ---- Send Loconet command to Command station (Z21) to set the switch ---- */
   setLNTurnout(element[index].address, element[index].state);
-//  sendOPC_SW_REQ(element[index].address, (byte)element[index].state, 1);  // Actually set switch
 
 }
 
@@ -405,8 +401,7 @@ void setPower(int state) {
   LCD_display(display, 3,10, "Power: ");
   LCD_display(display, 3,17, state == POWERON ? "ON " : "OFF");
 
-// SET LOCONET COMMAND TO Z21
-//   TO SET POWER STATE
+/* --- Send Loconet command to command station (Z21) to set power state ---- */
   sendOPC_GP(state);
 
 }
