@@ -32,7 +32,6 @@
  *   0.12   Improved activation at startup
  *          Shorter pause between activation of switches
  *          Improved readability of error message
- *          Removed initial activation of layout state
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.12"                  // Program version definition
@@ -131,6 +130,8 @@ void setup() {
 
   LCD_display(display, 1, 0, F("                    "));
   recallState();                            // By default recall state from EEPROM
+
+  activateState();                          // Activate recalled state
 
   LCD_display(display, 0, 0, F("System ready        "));
 
@@ -562,7 +563,7 @@ void activateState() {
         LCD_display(display, 1, 15, String(element[index].address) );
         setSwitch(index);                   //  then set proper value
         
-        do {} while (millis() - prevMillis < 100 );
+        do {} while (millis() - prevMillis < 50 );
 
         LnPacket = LocoNet.receive();             // process incoming Loconet msgs
         if (LnPacket) {
