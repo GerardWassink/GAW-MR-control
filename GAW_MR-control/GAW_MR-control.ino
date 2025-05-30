@@ -34,6 +34,7 @@
  *          Improved readability of error message
  *          Captured some more notify packets
  *          Introduced some static strings
+ *          Built in power notification
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.12"                  // Program version definition
@@ -656,6 +657,24 @@ void sendOPC_GP(byte on) {
 
 
 /* ------------------------------------------------------------------------- *
+ *                                                             notifyPower()
+ * This call-back function is called from the routine
+ * LocoNet.processSwitchSensorMessage for the power Request messages
+ * ------------------------------------------------------------------------- */
+void notifyPower(uint8_t State) {
+  Serial.print("Layout Power State: ");
+  Serial.println(State ? "On" : "Off");
+
+  State == POWERON ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
+
+  LCD_display(display, 3,10, "Power: ");
+  LCD_display(display, 3,17, State == POWERON ? "ON " : "OFF");
+
+}
+
+
+
+/* ------------------------------------------------------------------------- *
  *                                                     notifySwitchRequest()
  * These call-back functions are called from the routine
  * LocoNet.processSwitchSensorMessage for all Switch Request messages
@@ -684,7 +703,7 @@ void notifySwitchState( uint16_t Address, uint8_t Output, uint8_t Direction ) {
 
 
 /* ------------------------------------------------------------------------- *
- *                                                     notifySwitchRequest()
+ *                                                     HandleSwitchRequest()
  * This call-back function is called from LocoNet.processSwitchSensorMessage
  * for all Switch Request messages
  * ------------------------------------------------------------------------- */
