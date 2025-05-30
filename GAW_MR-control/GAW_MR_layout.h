@@ -1,7 +1,7 @@
 
 /* ------------------------------------------------------------------------- *
  * 
- * Definition for the layout and it's components and control panel functions
+ * Definition for the layout, it's components and control panel functions
  * 
  * ------------------------------------------------------------------------- */
 

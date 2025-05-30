@@ -33,6 +33,7 @@
  *          Shorter pause between activation of switches
  *          Improved readability of error message
  *          Captured some more notify packets
+ *          Introduced some static strings
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.12"                  // Program version definition
@@ -245,7 +246,7 @@ void flipSwitch(int index) {
  * ------------------------------------------------------------------------- */
 void setSwitch(int index) {
 #if DEBUG_LVL > 1
-    debugln("--- setSwitch " + String(element[index].address) + " to " + ( element[index].state == STRAIGHT ? "Straight" : "Thrown  " ) );
+    debugln("--- setSwitch " + String(element[index].address) + " to " + ( element[index].state == STRAIGHT ? STATE_STRAIGHT : STATE_THROWN ) );
 #endif 
 
 /* ---- Send Loconet command to Command station (Z21) to set the switch ---- */
@@ -447,7 +448,7 @@ void showElements() {
     switch (element[i].type) {
       case TYPE_SWITCH:
         debug("state="+String(element[i].state) + "=");
-        debug(element[i].state  == STRAIGHT ? F("Straight,") : F("Thrown,") );
+        debug(element[i].state  == STRAIGHT ? STATE_STRAIGHT : STATE_THROWN );
         debug(F(" - Module: "));
         debugln(element[i].module);
         break;
@@ -707,7 +708,7 @@ void handleSwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
     element[index].state = state;
 
 #if DEBUG_LVL > 1
-    debug("Set Switch "+String(element[index].address)+" to "+ (state == STRAIGHT ? "Straight" : "Thrown  " ) );
+    debug("Set Switch "+String(element[index].address)+" to "+ (state == STRAIGHT ? STATE_STRAIGHT : STATE_THROWN ) );
     debug(" - mx "+String(mx)+","+String(port)+" = "+String(state));
 #endif
 
@@ -723,7 +724,7 @@ void handleSwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
 
     LCD_display(display, 0, 0, F("Switch              "));
     LCD_display(display, 0, 7, String(Address));
-    LCD_display(display, 0,12, state == STRAIGHT ? "Straight" : "Thrown  " );
+    LCD_display(display, 0,12, state == STRAIGHT ? STATE_STRAIGHT : STATE_THROWN );
 
   } else {
 

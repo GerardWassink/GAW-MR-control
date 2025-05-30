@@ -52,3 +52,10 @@
 
 #define memSize EEPROM.length()             // Amount of EEPROM memory
 
+
+/* ------------------------------------------------------------------------- *
+ *                                             Definitions of static strings
+ * ------------------------------------------------------------------------- */
+#define STATE_STRAIGHT F("straight")
+#define STATE_THROWN   F("thrown  ")
+
