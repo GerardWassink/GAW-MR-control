@@ -36,8 +36,10 @@
  *          Introduced some static strings
  *          Built in power notification
  *
+ *   1.0    First release
+ *
  *------------------------------------------------------------------------- */
-#define progVersion "0.12"                  // Program version definition
+#define progVersion "1.0"                  // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
