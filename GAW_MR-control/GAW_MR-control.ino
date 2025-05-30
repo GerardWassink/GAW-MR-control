@@ -32,6 +32,7 @@
  *   0.12   Improved activation at startup
  *          Shorter pause between activation of switches
  *          Improved readability of error message
+ *          Captured some more notify packets
  *
  *------------------------------------------------------------------------- */
 #define progVersion "0.12"                  // Program version definition
@@ -610,6 +611,17 @@ void LCD_display(LiquidCrystal_I2C screen, int row, int col, String text) {
 }
 
 
+// Some turnout decoders (DS54?) can use solenoids, this code emulates the digitrax 
+// throttles in toggling the "power" bit to cause a pulse
+void setLNTurnout(int address, byte dir) {
+#if DEBUG_LVL > 2
+  debugln("--- setLNTurnout");
+#endif
+    sendOPC_SW_REQ(address - 1, dir, 1);
+    sendOPC_SW_REQ(address - 1, dir, 0);
+}
+
+
 // Construct a Loconet packet that requests a turnout to set/change its state
 void sendOPC_SW_REQ(int address, byte dir, byte on) {
 #if DEBUG_LVL > 2
@@ -629,17 +641,6 @@ void sendOPC_SW_REQ(int address, byte dir, byte on) {
   LocoNet.send( &SendPacket );
 }
 
-// Some turnout decoders (DS54?) can use solenoids, this code emulates the digitrax 
-// throttles in toggling the "power" bit to cause a pulse
-void setLNTurnout(int address, byte dir) {
-#if DEBUG_LVL > 2
-  debugln("--- setLNTurnout");
-#endif
-    sendOPC_SW_REQ(address - 1, dir, 1);
-    sendOPC_SW_REQ(address - 1, dir, 0);
-}
-
-
 // Set power status
 void sendOPC_GP(byte on) {
         lnMsg SendPacket;
@@ -655,14 +656,42 @@ void sendOPC_GP(byte on) {
 
 /* ------------------------------------------------------------------------- *
  *                                                     notifySwitchRequest()
- * This call-back function is called from LocoNet.processSwitchSensorMessage
- * for all Switch Request messages
+ * These call-back functions are called from the routine
+ * LocoNet.processSwitchSensorMessage for all Switch Request messages
  * ------------------------------------------------------------------------- */
-void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
-
+void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t State ) {
 #if DEBUG_LVL > 2
   debugln("--- notifySwitchRequest");
 #endif
+  handleSwitchRequest( Address, Output, State );
+}
+
+void notifySwitchReport( uint16_t Address, uint8_t Output, uint8_t Direction ) {
+#if DEBUG_LVL > 2
+  debugln("--- notifySwitchReport");
+#endif
+  handleSwitchRequest( Address, Output, Direction );
+}
+
+void notifySwitchState( uint16_t Address, uint8_t Output, uint8_t Direction ) {
+#if DEBUG_LVL > 2
+  debugln("--- notifySwitchState");
+#endif
+  handleSwitchRequest( Address, Output, Direction );
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                     notifySwitchRequest()
+ * This call-back function is called from LocoNet.processSwitchSensorMessage
+ * for all Switch Request messages
+ * ------------------------------------------------------------------------- */
+void handleSwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
+#if DEBUG_LVL > 2
+  debugln("--- notifySwitchRequest");
+#endif
+
   int index;
   for (index = 0; index < nElements; index++) { // Look up Switch address
     if (element[index].address == Address) {
@@ -671,9 +700,9 @@ void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
   }
 
   if (element[index].type == TYPE_SWITCH && index < nElements) {
-                                              // Calculate mx address and port 
-    int mx = (index / 16) * 2;                //  for the even numbered mux
-    int port = (index % 16);                  //  from switch position in elements
+                                            // Calculate mx address and port 
+    int mx = (index / 16) * 2;              //  for the even numbered mux
+    int port = (index % 16);                //  from switch position in elements
 
     element[index].state = state;
 
@@ -698,7 +727,7 @@ void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
 
   } else {
 
-    debug("Address " + String(element[index].address) + " --- ");
+    debug("Address " + String(element[index].address) + " :: ");
     debugln("ERROR ERROR ERROR :: Address not found");
 
   }
