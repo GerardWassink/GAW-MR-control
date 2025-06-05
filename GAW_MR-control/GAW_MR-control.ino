@@ -38,8 +38,11 @@
  *
  *   1.0    First release
  *
+ *   1.1    Rolled back the LN_SW_UART_RX_INVERTED definition
+ *            in the ln_config,h file
+ *
  *------------------------------------------------------------------------- */
-#define progVersion "1.0"                  // Program version definition
+#define progVersion "1.1"                  // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
