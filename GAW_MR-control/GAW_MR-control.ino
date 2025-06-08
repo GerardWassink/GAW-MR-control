@@ -40,6 +40,8 @@
  *
  *   1.1    Rolled back the LN_SW_UART_RX_INVERTED definition
  *            in the ln_config,h file
+ *   1.2    Send all Loconet commands twice because sometimes the 
+ *            DCC commands got lost
  *
  *------------------------------------------------------------------------- */
 #define progVersion "1.1"                  // Program version definition
@@ -518,6 +520,7 @@ void storeState() {
   for (int i=0; i<nElements; i++) {
     EEPROM.put(i*entrySize, element[i]);
   }
+  debugln("System status stored");
   LCD_display(display, 3, 0, "Stored");
   delay(1000);
   LCD_display(display, 3, 0, F("      "));
@@ -624,8 +627,21 @@ void setLNTurnout(int address, byte dir) {
 #if DEBUG_LVL > 2
   debugln("--- setLNTurnout");
 #endif
+
+/* ------------------------------------------------------------------------- *
+ * Sending the commands twice, just to be sure, because sometimes the 
+ * LocoNet commands went through, but the DCC commands got lost...
+ * ------------------------------------------------------------------------- */
     sendOPC_SW_REQ(address - 1, dir, 1);
+    delay(20);
     sendOPC_SW_REQ(address - 1, dir, 0);
+    delay(20);
+
+    sendOPC_SW_REQ(address - 1, dir, 1);
+    delay(20);
+    sendOPC_SW_REQ(address - 1, dir, 0);
+    delay(20);
+
 }
 
 
