@@ -42,9 +42,10 @@
  *            in the ln_config,h file
  *   1.2    Send all Loconet commands twice because sometimes the 
  *            DCC commands got lost
+ *   1.3    Improved and corrected switch handling
  *
  *------------------------------------------------------------------------- */
-#define progVersion "1.1"                  // Program version definition
+#define progVersion "1.3"                  // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
@@ -236,13 +237,23 @@ void handleKeys(char key) {
  *                                                              flipSwitch()
  * ------------------------------------------------------------------------- */
 void flipSwitch(int index) {
-#if DEBUG_LVL > 2
-  debugln("--- flipSwitch");
+#if DEBUG_LVL > 1
+  debug("--- flipSwitch");
 #endif
 
-  element[index].state == STRAIGHT ? \
-    element[index].state = STRAIGHT : \
+#if DEBUG_LVL > 2
+  debug("flipSwitch from " + String( element[index].state ) + " to " );
+#endif
+
+  if (element[index].state == STRAIGHT) {
     element[index].state = THROWN;
+  } else {
+    element[index].state = STRAIGHT;
+  }
+
+#if DEBUG_LVL > 2
+  debugln( String(element[index].state) );
+#endif
 
   setSwitch(index);
 }
@@ -427,6 +438,7 @@ void showElements() {
   debugln(F("Show elements table:"));
   for (int i=0; i<nElements; i++) {
     debug(String(i+1));
+
     debug(F(" - Type: "));
     debug(element[i].type);
     switch (element[i].type) {
@@ -455,7 +467,7 @@ void showElements() {
 
     switch (element[i].type) {
       case TYPE_SWITCH:
-        debug("state="+String(element[i].state) + "=");
+        debug("state="+String(element[i].state) + ", ");
         debug(element[i].state  == STRAIGHT ? STATE_STRAIGHT : STATE_THROWN );
         debug(F(" - Module: "));
         debugln(element[i].module);
@@ -552,8 +564,8 @@ void recallState() {
  *                                                           activateState()
  * ------------------------------------------------------------------------- */
 void activateState() {
-  debugln("Activating system status to layout");
-  LCD_display(display, 1, 0, "Activate state      ");
+  debugln("Synchronising system status to layout");
+  LCD_display(display, 1, 0, "Sync state          ");
 
   int pwr = 0;                              // Assume power off
   int index = 0;
@@ -572,14 +584,15 @@ void activateState() {
                                             //  & address > zero?
       if (element[index].type == TYPE_SWITCH && element[index].address > 0 ) {
         LCD_display(display, 1, 15, String(element[index].address) );
+        
         setSwitch(index);                   //  then set proper value
         
-        do {} while (millis() - prevMillis < 50 );
-
         LnPacket = LocoNet.receive();             // process incoming Loconet msgs
         if (LnPacket) {
           LocoNet.processSwitchSensorMessage(LnPacket);
         }
+
+        do {} while (millis() - prevMillis < 50 );
 
       }
     }
@@ -625,7 +638,7 @@ void LCD_display(LiquidCrystal_I2C screen, int row, int col, String text) {
 // throttles in toggling the "power" bit to cause a pulse
 void setLNTurnout(int address, byte dir) {
 #if DEBUG_LVL > 2
-  debugln("--- setLNTurnout");
+  debugln("--- setLNTurnout, direction = "+String(dir) );
 #endif
 
 /* ------------------------------------------------------------------------- *
@@ -633,12 +646,10 @@ void setLNTurnout(int address, byte dir) {
  * LocoNet commands went through, but the DCC commands got lost...
  * ------------------------------------------------------------------------- */
     sendOPC_SW_REQ(address - 1, dir, 1);
-    delay(20);
     sendOPC_SW_REQ(address - 1, dir, 0);
     delay(20);
 
     sendOPC_SW_REQ(address - 1, dir, 1);
-    delay(20);
     sendOPC_SW_REQ(address - 1, dir, 0);
     delay(20);
 
@@ -648,7 +659,7 @@ void setLNTurnout(int address, byte dir) {
 // Construct a Loconet packet that requests a turnout to set/change its state
 void sendOPC_SW_REQ(int address, byte dir, byte on) {
 #if DEBUG_LVL > 2
-  debugln("--- sendOPC_SW_REQ");
+  debugln("--- sendOPC_SW_REQ, "+String(address)+String(dir)+", "+String(on) );
 #endif
   lnMsg SendPacket ;
     
@@ -702,21 +713,21 @@ void notifyPower(uint8_t State) {
  * ------------------------------------------------------------------------- */
 void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t State ) {
 #if DEBUG_LVL > 2
-  debugln("--- notifySwitchRequest");
+  debugln("--- notifySwitchRequest, "+String(Address)+", "+String(Output)+", "+String(State));
 #endif
   handleSwitchRequest( Address, Output, State );
 }
 
 void notifySwitchReport( uint16_t Address, uint8_t Output, uint8_t Direction ) {
 #if DEBUG_LVL > 2
-  debugln("--- notifySwitchReport");
+  debugln("--- notifySwitchReport, "+String(Address)+", "+String(Output)+", "+String(Direction));
 #endif
   handleSwitchRequest( Address, Output, Direction );
 }
 
 void notifySwitchState( uint16_t Address, uint8_t Output, uint8_t Direction ) {
 #if DEBUG_LVL > 2
-  debugln("--- notifySwitchState");
+  debugln("--- notifySwitchState, "+String(Address)+", "+String(Output)+", "+String(Direction));
 #endif
   handleSwitchRequest( Address, Output, Direction );
 }
@@ -730,7 +741,7 @@ void notifySwitchState( uint16_t Address, uint8_t Output, uint8_t Direction ) {
  * ------------------------------------------------------------------------- */
 void handleSwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
 #if DEBUG_LVL > 2
-  debugln("--- notifySwitchRequest");
+  debugln("--- handleSwitchRequest, "+String(Address)+", "+String(Output)+", "+String(state));
 #endif
 
   int index;
@@ -745,19 +756,14 @@ void handleSwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
     int mx = (index / 16) * 2;              //  for the even numbered mux
     int port = (index % 16);                //  from switch position in elements
 
-    element[index].state = state;
+    int val = (state == 0 ? 0 : 1 );          // To set mux ports
+    mcps[mx].mcp.digitalWrite(port, val );    // Set first LED on or off
+    mcps[mx+1].mcp.digitalWrite(port, !val ); // Set second LED on or off
 
 #if DEBUG_LVL > 1
-    debug("Set Switch "+String(element[index].address)+" to "+ (state == STRAIGHT ? STATE_STRAIGHT : STATE_THROWN ) );
-    debug(" - mx "+String(mx)+","+String(port)+" = "+String(state));
-#endif
-
-    mcps[mx].mcp.digitalWrite(port, state);   // Set first LED on or off
-    mx++;                                     // One up for odd number mux
-    mcps[mx].mcp.digitalWrite(port, !state);  // Set second LED on or off
-
-#if DEBUG_LVL > 1
-    debug(", mx "+String(mx)+","+String(port)+" = "+ String(!state) );
+    debug("Set Switch "+String(element[index].address)+" to "+ String(state) );
+    debug(" - mx "+String(mx)+","+String(port)+" = "+String(val) );
+    debug(", mx "+String(mx+1)+","+String(port)+" = "+ String(!val) );
     debug(" - ");
     debugln(Output ? "On" : "Off");
 #endif
