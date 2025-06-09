@@ -18,11 +18,11 @@
  * The MR_date structure defines the variables per element.
  * ------------------------------------------------------------------------- */
 struct MR_data{                             // single element definition
-  int           type;
-  int           module;
-  uint16_t      address;
-  byte          state;
-  int           state2;
+  int           type;      // switch, loco, function, power
+  int           module;    // modules on my layout (for switches)
+  uint16_t      address;   // Loconet address where applicable
+  byte          state;     // depends on type
+  int           state2;    // depends on type
 };
 
 

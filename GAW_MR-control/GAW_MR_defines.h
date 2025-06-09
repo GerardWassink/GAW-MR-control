@@ -5,15 +5,15 @@
 #define ROWS 8                              // Definitions for
 #define COLS 8                              //  key-matrix
 
-#define POWEROFF  0                          // Power states
+#define POWEROFF  0                         // Power states
 #define POWERON   1
 
-#define STRAIGHT  0                          // Definitions for
-#define THROWN   32                          //  Switch states
+#define STRAIGHT  0                         // Definitions for
+#define THROWN   32                         //  Switch states
 
-#define FORWARD   1                          // Definitions
-#define STOP      0                          //   for loc
-#define REVERSE  -1                          //     direction
+#define FORWARD   1                         // Definitions
+#define STOP      0                         //   for loc
+#define REVERSE  -1                         //     direction
 
 #define TYPE_SWITCH    0                    // Types
 #define TYPE_LOCO      1                    //  for

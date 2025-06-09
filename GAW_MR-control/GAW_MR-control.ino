@@ -43,9 +43,11 @@
  *   1.2    Send all Loconet commands twice because sometimes the 
  *            DCC commands got lost
  *   1.3    Improved and corrected switch handling
+ *   1.4    Replaced switch handling for solenoids with 'normal' ones
+ *            seems to be more dependable
  *
  *------------------------------------------------------------------------- */
-#define progVersion "1.3"                  // Program version definition
+#define progVersion "1.4"                  // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
@@ -262,14 +264,18 @@ void flipSwitch(int index) {
 
 /* ------------------------------------------------------------------------- *
  *                                                               setSwitch()
+ * ---- Send Loconet command to Command station (Z21) to set the switch ---- *
  * ------------------------------------------------------------------------- */
 void setSwitch(int index) {
 #if DEBUG_LVL > 1
     debugln("--- setSwitch " + String(element[index].address) + " to " + ( element[index].state == STRAIGHT ? STATE_STRAIGHT : STATE_THROWN ) );
 #endif 
 
-/* ---- Send Loconet command to Command station (Z21) to set the switch ---- */
-  setLNTurnout(element[index].address, element[index].state);
+                                            // Old way for solenoid switches
+//  setLNTurnout(element[index].address, element[index].state);
+
+                                            // Current way for our switches
+  sendOPC_SW_REQ(element[index].address - 1, element[index].state, 1);
 
 }
 
