@@ -45,9 +45,10 @@
  *   1.3    Improved and corrected switch handling
  *   1.4    Replaced switch handling for solenoids with 'normal' ones
  *            seems to be more dependable
+ *   1.5    Improved straight - thrown states
  *
  *------------------------------------------------------------------------- */
-#define progVersion "1.4"                  // Program version definition
+#define progVersion "1.5"                  // Program version definition
 /* ------------------------------------------------------------------------- *
  *             GNU LICENSE CONDITIONS
  * ------------------------------------------------------------------------- *
@@ -135,7 +136,9 @@ void setup() {
 
   debugln(F("==============================="));
   debugln(F("Initialize LocoNet"));
+
   LocoNet.init(LN_TX_PIN);                  // Initialize Loconet
+
   debugln(F("==============================="));
 
 //  storeState();                             // to replace it with the definitions in the code
@@ -240,11 +243,13 @@ void handleKeys(char key) {
  * ------------------------------------------------------------------------- */
 void flipSwitch(int index) {
 #if DEBUG_LVL > 1
-  debug("--- flipSwitch");
+  debug("--- flipSwitch ");
 #endif
 
 #if DEBUG_LVL > 2
-  debug("flipSwitch from " + String( element[index].state ) + " to " );
+  debug(String(element[index].address)+" from ");
+  if (element[index].state == STRAIGHT) debug(STATE_STRAIGHT); else debug(STATE_THROWN);
+  debug(" to " );
 #endif
 
   if (element[index].state == STRAIGHT) {
@@ -254,7 +259,7 @@ void flipSwitch(int index) {
   }
 
 #if DEBUG_LVL > 2
-  debugln( String(element[index].state) );
+  if (element[index].state == STRAIGHT) debug(STATE_STRAIGHT); else debug(STATE_THROWN);
 #endif
 
   setSwitch(index);
@@ -268,14 +273,14 @@ void flipSwitch(int index) {
  * ------------------------------------------------------------------------- */
 void setSwitch(int index) {
 #if DEBUG_LVL > 1
-    debugln("--- setSwitch " + String(element[index].address) + " to " + ( element[index].state == STRAIGHT ? STATE_STRAIGHT : STATE_THROWN ) );
+    debugln("setSwitch " + String(element[index].address) + " to " + ( element[index].state == STRAIGHT ? STATE_STRAIGHT : STATE_THROWN ) );
 #endif 
-
-                                            // Old way for solenoid switches
-//  setLNTurnout(element[index].address, element[index].state);
 
                                             // Current way for our switches
   sendOPC_SW_REQ(element[index].address - 1, element[index].state, 1);
+
+                                            // Old way for solenoid switches
+//  setLNTurnout(element[index].address, element[index].state);
 
 }
 
@@ -653,11 +658,6 @@ void setLNTurnout(int address, byte dir) {
  * ------------------------------------------------------------------------- */
     sendOPC_SW_REQ(address - 1, dir, 1);
     sendOPC_SW_REQ(address - 1, dir, 0);
-    delay(20);
-
-    sendOPC_SW_REQ(address - 1, dir, 1);
-    sendOPC_SW_REQ(address - 1, dir, 0);
-    delay(20);
 
 }
 
@@ -665,7 +665,7 @@ void setLNTurnout(int address, byte dir) {
 // Construct a Loconet packet that requests a turnout to set/change its state
 void sendOPC_SW_REQ(int address, byte dir, byte on) {
 #if DEBUG_LVL > 2
-  debugln("--- sendOPC_SW_REQ, "+String(address)+String(dir)+", "+String(on) );
+  debugln("--- sendOPC_SW_REQ, "+String(address)+", "+String(dir)+", "+String(on) );
 #endif
   lnMsg SendPacket ;
     
@@ -680,6 +680,7 @@ void sendOPC_SW_REQ(int address, byte dir, byte on) {
     
   LocoNet.send( &SendPacket );
 }
+
 
 // Set power status
 void sendOPC_GP(byte on) {
@@ -721,7 +722,7 @@ void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t State ) {
 #if DEBUG_LVL > 2
   debugln("--- notifySwitchRequest, "+String(Address)+", "+String(Output)+", "+String(State));
 #endif
-  handleSwitchRequest( Address, Output, State );
+  handleSwitchRequest( Address, Output, State );  // Update element and control panel status
 }
 
 void notifySwitchReport( uint16_t Address, uint8_t Output, uint8_t Direction ) {
@@ -767,7 +768,7 @@ void handleSwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
     mcps[mx+1].mcp.digitalWrite(port, !val ); // Set second LED on or off
 
 #if DEBUG_LVL > 1
-    debug("Set Switch "+String(element[index].address)+" to "+ String(state) );
+    debug("------ Set Switch "+String(element[index].address)+" to "+ String(state) );
     debug(" - mx "+String(mx)+","+String(port)+" = "+String(val) );
     debug(", mx "+String(mx+1)+","+String(port)+" = "+ String(!val) );
     debug(" - ");

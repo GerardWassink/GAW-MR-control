@@ -8,8 +8,10 @@
 #define POWEROFF  0                         // Power states
 #define POWERON   1
 
-#define STRAIGHT  0                         // Definitions for
-#define THROWN   32                         //  Switch states
+#define STRAIGHT 32                         // Definitions for
+#define THROWN    0                         //  Switch states
+#define STATE_STRAIGHT F("straight")
+#define STATE_THROWN   F("thrown  ")
 
 #define FORWARD   1                         // Definitions
 #define STOP      0                         //   for loc
@@ -51,11 +53,4 @@
 #define POWERLED  53                        // Panel Power indicator
 
 #define memSize EEPROM.length()             // Amount of EEPROM memory
-
-
-/* ------------------------------------------------------------------------- *
- *                                             Definitions of static strings
- * ------------------------------------------------------------------------- */
-#define STATE_STRAIGHT F("straight")
-#define STATE_THROWN   F("thrown  ")
 
