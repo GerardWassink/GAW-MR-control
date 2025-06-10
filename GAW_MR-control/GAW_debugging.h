@@ -9,7 +9,7 @@
  *   2 - lvl 1 + verbose debug output
  *   3 - lvl 2 + track routine names
  * ------------------------------------------------------------------------- */
-#define DEBUG_LVL 9
+#define DEBUG_LVL 1
 
 #if DEBUG_LVL > 0
 #define debugstart(x) Serial.begin(x)
@@ -20,5 +20,3 @@
 #define debug(x)
 #define debugln(x)
 #endif
-
-

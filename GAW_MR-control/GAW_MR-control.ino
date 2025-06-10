@@ -46,6 +46,7 @@
  *   1.4    Replaced switch handling for solenoids with 'normal' ones
  *            seems to be more dependable
  *   1.5    Improved straight - thrown states
+ *          Improved timing with activateState routine
  *
  *------------------------------------------------------------------------- */
 #define progVersion "1.5"                  // Program version definition
@@ -147,6 +148,7 @@ void setup() {
   LCD_display(display, 1, 0, F("                    "));
   recallState();                            // By default recall state from EEPROM
 
+  debugln("Activating state to layout");
   activateState();                          // Activate recalled state
 
   LCD_display(display, 0, 0, F("System ready        "));
@@ -243,11 +245,11 @@ void handleKeys(char key) {
  * ------------------------------------------------------------------------- */
 void flipSwitch(int index) {
 #if DEBUG_LVL > 1
-  debug("--- flipSwitch ");
+  debug("flipSwitch ");
 #endif
 
 #if DEBUG_LVL > 2
-  debug(String(element[index].address)+" from ");
+  debug("--- flipSwitch: set "+String(element[index].address)+" from ");
   if (element[index].state == STRAIGHT) debug(STATE_STRAIGHT); else debug(STATE_THROWN);
   debug(" to " );
 #endif
@@ -427,8 +429,8 @@ void handlePower(int index) {
 /* ------------------------------------------------------------------------- *
  *                                                                setPower()
  * ------------------------------------------------------------------------- */
-void setPower(int state) {
-  debug("Setting Power ");
+ void setPower(int state) {
+  debug("setPower ");
   debugln(state == POWEROFF ? F("OFF") : F("ON") );
   state ? digitalWrite(POWERLED, HIGH) : digitalWrite(POWERLED, LOW);
 
@@ -575,11 +577,15 @@ void recallState() {
  *                                                           activateState()
  * ------------------------------------------------------------------------- */
 void activateState() {
-  debugln("Synchronising system status to layout");
+#if DEBUG_LVL > 1
+  debug("activateState ");
+#endif
+
   LCD_display(display, 1, 0, "Sync state          ");
 
   int pwr = 0;                              // Assume power off
   int index = 0;
+
 
   for (index = 0; index < nElements; index++) {  // FIRST: restore power state
     if (element[index].type == 99) {        // Power state found
@@ -588,6 +594,7 @@ void activateState() {
     }
   }
 
+
   if (pwr) {                                // Power on? then Switches
     for (index = 0; index < nElements; index++) {
       unsigned long prevMillis = millis();
@@ -595,7 +602,12 @@ void activateState() {
                                             //  & address > zero?
       if (element[index].type == TYPE_SWITCH && element[index].address > 0 ) {
         LCD_display(display, 1, 15, String(element[index].address) );
-        
+
+#if DEBUG_LVL > 1
+        debug("--- activateState:Setting "+String(element[index].address)+" to ");
+        if (element[index].state == STRAIGHT) debugln(STATE_STRAIGHT); else debugln(STATE_THROWN);
+#endif
+
         setSwitch(index);                   //  then set proper value
         
         LnPacket = LocoNet.receive();             // process incoming Loconet msgs
@@ -603,7 +615,7 @@ void activateState() {
           LocoNet.processSwitchSensorMessage(LnPacket);
         }
 
-        do {} while (millis() - prevMillis < 50 );
+        do {} while (millis() - prevMillis < 100 );
 
       }
     }
@@ -645,28 +657,25 @@ void LCD_display(LiquidCrystal_I2C screen, int row, int col, String text) {
 }
 
 
+
 // Some turnout decoders (DS54?) can use solenoids, this code emulates the digitrax 
 // throttles in toggling the "power" bit to cause a pulse
+//   This code is not used here, 'cause I don't have Solenoid switches
 void setLNTurnout(int address, byte dir) {
-#if DEBUG_LVL > 2
-  debugln("--- setLNTurnout, direction = "+String(dir) );
-#endif
-
-/* ------------------------------------------------------------------------- *
- * Sending the commands twice, just to be sure, because sometimes the 
- * LocoNet commands went through, but the DCC commands got lost...
- * ------------------------------------------------------------------------- */
     sendOPC_SW_REQ(address - 1, dir, 1);
     sendOPC_SW_REQ(address - 1, dir, 0);
-
 }
+
 
 
 // Construct a Loconet packet that requests a turnout to set/change its state
 void sendOPC_SW_REQ(int address, byte dir, byte on) {
-#if DEBUG_LVL > 2
-  debugln("--- sendOPC_SW_REQ, "+String(address)+", "+String(dir)+", "+String(on) );
+
+#if DEBUG_LVL > 1
+  debugln("sendOPC_SW_REQ");
+  debugln("--- sendOPC_SW_REQ:switch "+String(address)+", "+String(dir)+", "+String(on) );
 #endif
+
   lnMsg SendPacket ;
     
   int sw2 = 0x00;
@@ -748,7 +757,7 @@ void notifySwitchState( uint16_t Address, uint8_t Output, uint8_t Direction ) {
  * ------------------------------------------------------------------------- */
 void handleSwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
 #if DEBUG_LVL > 2
-  debugln("--- handleSwitchRequest, "+String(Address)+", "+String(Output)+", "+String(state));
+  debugln("handleSwitchRequest, "+String(Address)+", "+String(Output)+", "+String(state));
 #endif
 
   int index;
@@ -768,7 +777,7 @@ void handleSwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
     mcps[mx+1].mcp.digitalWrite(port, !val ); // Set second LED on or off
 
 #if DEBUG_LVL > 1
-    debug("------ Set Switch "+String(element[index].address)+" to "+ String(state) );
+    debug("--- handleSwitchRequest:Set Switch "+String(element[index].address)+" to "+ String(state) );
     debug(" - mx "+String(mx)+","+String(port)+" = "+String(val) );
     debug(", mx "+String(mx+1)+","+String(port)+" = "+ String(!val) );
     debug(" - ");
@@ -781,7 +790,7 @@ void handleSwitchRequest( uint16_t Address, uint8_t Output, uint8_t state ) {
 
   } else {
 
-    debug("Address " + String(element[index].address) + " :: ");
+    debug("--- handleSwitchRequest:Address " + String(element[index].address) + " :: ");
     debugln("ERROR ERROR ERROR :: Address not found");
 
   }
